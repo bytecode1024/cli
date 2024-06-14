@@ -1,19 +1,12 @@
-import {subscribeProcess} from '../../processes/polling-app-logs.js'
-import {SubscribeOptions, PollOptions, LogsProcess, FunctionRunLog} from '../../types.js'
-import {parseFunctionRunPayload, currentTime, prettyPrintJsonIfPossible} from '../../helpers.js'
-import {
-  POLLING_INTERVAL_MS,
-  POLLING_ERROR_RETRY_INTERVAL_MS,
-  POLLING_THROTTLE_RETRY_INTERVAL_MS,
-  ONE_MILLION,
-} from '../../constants.js'
+import {PollOptions, FunctionRunLog} from '../../types.js'
+import {currentTime} from '../../utils.js'
 import React, {FunctionComponent, useRef, useState, useEffect} from 'react'
 
 import {Static, Box, Text} from '@shopify/cli-kit/node/ink'
 
 export interface LogsProps {
-  logsProcess: LogsProcess
-  subscribeOptions: SubscribeOptions
+  errorHandledLogsProcess: ErrorHandleLogsProcess
+  resubscribeCallback: () => Promise<string>
   pollOptions: PollOptions
 }
 
@@ -24,82 +17,90 @@ interface AppLogPrefix {
   functionId: string
 }
 
-interface ProcessOutout {
+interface ErrorHandleProcessInput {
+  handleJwtUpdate: (jwtToken: string | null) => void
+  handleErrors: (error: {status: number; message: string}[]) => void
+  handleAppLog: (input: ProcessOutout) => void
+  jwtToken: string
+  cursor: string
+  filters?: {
+    status?: string
+    source?: string
+  }
+}
+
+type ErrorHandleLogsProcess = ({
+  handleJwtUpdate,
+  jwtToken,
+  cursor,
+  handleErrors,
+  handleAppLog,
+  filters,
+}: ErrorHandleProcessInput) => Promise<{
+  cursor: string
+  nextInterval: number
+}>
+
+export interface ProcessOutout {
   prefix: AppLogPrefix
   appLog: FunctionRunLog
 }
 
 const Logs: FunctionComponent<LogsProps> = ({
-  logsProcess,
+  errorHandledLogsProcess: logsProcess,
   pollOptions: {cursor = '', jwtToken, filters},
-  subscribeOptions: {developerPlatformClient, storeId, apiKey},
+  resubscribeCallback,
 }) => {
   const pollingInterval = useRef<NodeJS.Timeout>()
-  const currentIntervalRef = useRef<number>(POLLING_INTERVAL_MS)
   const [processOutputs, setProcessOutputs] = useState<ProcessOutout[]>([])
-  const [errorsState, setErrorsState] = useState<string[]>([])
+  const [errorsState, setErrorsState] = useState<{status: number; message: string}[]>([])
   const [jwtTokenState, setJwtTokenState] = useState<string | null>(jwtToken)
+
+  const handleAppLogErrors = (error: {status: number; message: string}[]) => {
+    const userFacingErrors = error.filter((error) => {
+      return error.status === 401 || error.status === 429 || error.status >= 500
+    })
+    if (userFacingErrors) {
+      const errors = error.map((error) => {
+        return {status: error.status, message: error.message}
+      })
+      setErrorsState(errors)
+    } else {
+      setErrorsState([{status: 500, message: 'Error while fetching'}])
+    }
+  }
+
+  const handleAppLog = ({appLog, prefix}: {appLog: FunctionRunLog; prefix: AppLogPrefix}) => {
+    setProcessOutputs((prev) => [...prev, {appLog, prefix}])
+  }
 
   useEffect(() => {
     const pollLogs = async (currentCursor: string) => {
       try {
         if (jwtTokenState === null) {
-          const jwtToken = await subscribeProcess({
-            developerPlatformClient,
-            storeId,
-            apiKey,
-          })
-          if (!jwtToken) {
-            return
-          }
-          setJwtTokenState(jwtToken)
-        }
-        const {
-          cursor: newCursor,
-          errors,
-          appLogs,
-        } = await logsProcess({jwtToken: jwtTokenState || jwtToken, cursor: currentCursor, filters})
-        if (errors) {
-          if (errors.some((error) => error.includes('429'))) {
-            currentIntervalRef.current = POLLING_THROTTLE_RETRY_INTERVAL_MS
-            setErrorsState([...errors, `Retrying in ${POLLING_THROTTLE_RETRY_INTERVAL_MS / 1000} seconds.`])
-          } else if (errors.some((error) => error.includes('401'))) {
-            setJwtTokenState(null)
-          } else {
-            currentIntervalRef.current = POLLING_ERROR_RETRY_INTERVAL_MS
-            setErrorsState([...errors, `Retrying in ${POLLING_ERROR_RETRY_INTERVAL_MS / 1000} seconds.`])
-          }
-        } else {
-          setErrorsState([])
-          currentIntervalRef.current = POLLING_INTERVAL_MS
-        }
+          try {
+            const jwtToken = await resubscribeCallback()
 
-        if (appLogs) {
-          for (const log of appLogs) {
-            const appLog = parseFunctionRunPayload(log.payload)
-            const fuel = (appLog.fuelConsumed / ONE_MILLION).toFixed(4)
-            const prefix = {
-              status: log.status === 'success' ? 'Success' : 'Failure',
-              source: log.source,
-              fuelConsumed: fuel,
-              functionId: appLog.functionId,
-            }
-            setProcessOutputs((prev) => [
-              ...prev,
-              {
-                prefix,
-                appLog,
-              },
-            ])
+            setJwtTokenState(jwtToken)
+          } catch (error) {
+            throw new Error("Couldn't resubscribe.")
           }
         }
+        const {cursor, nextInterval} = await logsProcess({
+          jwtToken: jwtTokenState || jwtToken,
+          cursor: currentCursor,
+          filters,
+          handleErrors: handleAppLogErrors,
+          handleAppLog,
+          handleJwtUpdate: setJwtTokenState,
+        })
+
         // eslint-disable-next-line @typescript-eslint/no-misused-promises
         pollingInterval.current = setTimeout(() => {
-          return pollLogs(newCursor || currentCursor)
-        }, currentIntervalRef.current)
+          return pollLogs(cursor || currentCursor)
+        }, nextInterval)
       } catch (error) {
-        setErrorsState(['There was an issue polling for logs. Please try again.'])
-        throw error
+        throw new Error('Error polling logs')
       }
     }
 
@@ -136,8 +137,12 @@ const Logs: FunctionComponent<LogsProps> = ({
               <Text>in {prefix.fuelConsumed} M instructions</Text>
             </Box>
             <Text>{appLog.logs}</Text>
-            <Text>Input ({appLog.inputBytes} bytes):</Text>
-            <Text>{prettyPrintJsonIfPossible(appLog.input)}</Text>
+            {appLog.input && (
+              <>
+                <Text>Input ({appLog.inputBytes} bytes):</Text>
+                <Text>{prettyPrintJsonIfPossible(appLog.input)}</Text>
+              </>
+            )}
             {appLog.output && (
               <>
                 <Text>Output ({appLog.outputBytes} bytes):</Text>
@@ -147,16 +152,34 @@ const Logs: FunctionComponent<LogsProps> = ({
           </Box>
         )}
       </Static>
-      <Box flexDirection="column">
-        {errorsState.length > 0 &&
-          errorsState.map((error, index) => (
-            <Text key={index} color="red">
-              {error}
-            </Text>
+
+      {errorsState.length > 0 && (
+        <Box flexDirection="column">
+          {errorsState.map((error, index) => (
+            <Box key={index}>
+              <Text color="red">{currentTime()} </Text>
+              <Text color="red">{error.message}</Text>
+            </Box>
           ))}
-      </Box>
+        </Box>
+      )}
     </>
   )
 }
 
 export {Logs}
+
+function prettyPrintJsonIfPossible(json: unknown) {
+  try {
+    if (typeof json === 'string') {
+      const jsonObject = JSON.parse(json)
+      return JSON.stringify(jsonObject, null, 2)
+    } else if (typeof json === 'object' && json !== null) {
+      return JSON.stringify(json, null, 2)
+    } else {
+      return json
+    }
+  } catch (error) {
+    throw new Error(`Error parsing JSON: ${error}`)
+  }
+}

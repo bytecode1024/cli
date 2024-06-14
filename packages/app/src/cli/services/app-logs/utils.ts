@@ -1,3 +1,4 @@
+import {FunctionRunLog} from './types.js'
 import {DeveloperPlatformClient} from '../../utilities/developer-platform-client.js'
 import {AppLogsSubscribeVariables} from '../../api/graphql/subscribe_to_app_logs.js'
 import {fetch, Response} from '@shopify/cli-kit/node/http'
@@ -11,7 +12,23 @@ export const POLLING_THROTTLE_RETRY_INTERVAL_MS = 60 * 1000
 export const ONE_MILLION = 1000000
 export const LOG_TYPE_FUNCTION_RUN = 'function_run'
 
-const generateFetchAppLogUrl = async (
+export function parseFunctionRunPayload(payload: string): FunctionRunLog {
+  const parsedPayload = JSON.parse(payload)
+  return {
+    input: parsedPayload.input,
+    inputBytes: parsedPayload.input_bytes,
+    output: parsedPayload.output,
+    outputBytes: parsedPayload.output_bytes,
+    logs: parsedPayload.logs,
+    invocationId: parsedPayload.invocation_id,
+    functionId: parsedPayload.function_id,
+    fuelConsumed: parsedPayload.fuel_consumed,
+    errorMessage: parsedPayload.error_message,
+    errorType: parsedPayload.error_type,
+  }
+}
+
+export const generateFetchAppLogUrl = async (
   cursor?: string,
   filters?: {
     status?: string
@@ -72,4 +89,20 @@ export const subscribeToAppLogs = async (
     outputDebug(`Success: ${success}\n`)
   }
   return jwtToken
+}
+
+export function currentTime() {
+  const currentDateTime = new Date()
+  const year = currentDateTime.getFullYear()
+  const month = addLeadingZero(currentDateTime.getMonth() + 1)
+  const day = addLeadingZero(currentDateTime.getDate())
+  const hours = addLeadingZero(currentDateTime.getHours())
+  const minutes = addLeadingZero(currentDateTime.getMinutes())
+  const seconds = addLeadingZero(currentDateTime.getSeconds())
+  const milliseconds = addLeadingZero(currentDateTime.getMilliseconds(), 3)
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`
+}
+function addLeadingZero(number: number, length = 2) {
+  return number.toString().padStart(length, '0')
 }

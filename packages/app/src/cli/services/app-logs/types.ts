@@ -15,7 +15,7 @@ export interface AppLogData {
 }
 
 export interface FunctionRunLog {
-  input: string
+  input: unknown
   inputBytes: number
   invocationId: string
   output: unknown
@@ -29,8 +29,11 @@ export interface FunctionRunLog {
 
 export interface SubscribeOptions {
   developerPlatformClient: DeveloperPlatformClient
-  storeId: string
-  apiKey: string
+  variables: {
+    shopIds: string[]
+    apiKey: string
+    token: string
+  }
 }
 
 export interface PollOptions {
@@ -44,7 +47,10 @@ export interface PollOptions {
 
 interface PollResponse {
   cursor?: string
-  errors?: string[]
+  errors?: {
+    status: number
+    message: string
+  }[]
   appLogs?: AppLogData[]
 }
 

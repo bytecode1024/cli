@@ -1,6 +1,7 @@
 import {DevContextOptions, ensureDevContext} from './context.js'
 import {renderLogs} from './app-logs/ui.js'
-import {pollProcess, subscribeProcess} from './app-logs/processes/polling-app-logs.js'
+import {subscribeToAppLogs} from './app-logs/helpers.js'
+import {pollAppLogsForLogs} from './app-logs/poll-app-logs-for-logs.js'
 import {selectDeveloperPlatformClient, DeveloperPlatformClient} from '../utilities/developer-platform-client.js'
 import {loadAppConfiguration} from '../models/app/loader.js'
 
@@ -18,13 +19,13 @@ interface LogsOptions {
 export async function logs(commandOptions: LogsOptions) {
   const logsConfig = await prepareForLogs(commandOptions)
 
-  const subscribeOptions = {
-    storeId: logsConfig.storeId,
+  const variables = {
+    shopIds: [logsConfig.storeId],
     apiKey: logsConfig.apiKey,
-    developerPlatformClient: logsConfig.developerPlatformClient,
+    token: '',
   }
 
-  const jwtToken = await subscribeProcess(subscribeOptions)
+  const jwtToken = await subscribeToAppLogs(logsConfig.developerPlatformClient, variables)
 
   const filters = {
     status: commandOptions.status,
@@ -37,8 +38,11 @@ export async function logs(commandOptions: LogsOptions) {
   }
 
   await renderLogs({
-    logsProcess: pollProcess,
-    subscribeOptions,
+    logsProcess: pollAppLogsForLogs,
+    options: {
+      variables,
+      developerPlatformClient: logsConfig.developerPlatformClient,
+    },
     pollOptions,
   })
 }
