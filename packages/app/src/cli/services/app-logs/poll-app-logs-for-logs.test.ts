@@ -147,7 +147,7 @@ describe('pollProcess', () => {
   test('polling with 401 status', async () => {
     // Given
     const status = 401
-    const statusText = 'Unauthorized'
+    const statusText = '401: Unauthorized'
     const mockedUrl = vi.fn().mockResolvedValueOnce(`https://${FQDN}${MOCK_URL}`)
     vi.mocked(generateFetchAppLogUrl).mockImplementation(mockedUrl)
 
@@ -171,7 +171,7 @@ describe('pollProcess', () => {
   test('polling with 429 status', async () => {
     // Given
     const status = 429
-    const statusText = 'Resubscribe'
+    const statusText = '429: Resubscribe'
     const mockedUrl = vi.fn().mockResolvedValueOnce(`https://${FQDN}${MOCK_URL}`)
     vi.mocked(generateFetchAppLogUrl).mockImplementation(mockedUrl)
 
@@ -196,7 +196,7 @@ describe('pollProcess', () => {
   test('polling with other error status', async () => {
     // Given
     const status = 500
-    const statusText = 'Error'
+    const statusText = '500: Error'
     const mockedUrl = vi.fn().mockResolvedValueOnce(`https://${FQDN}${MOCK_URL}`)
     vi.mocked(generateFetchAppLogUrl).mockImplementation(mockedUrl)
 
