@@ -157,7 +157,6 @@ const Logs: FunctionComponent<LogsProps> = ({
         <Box flexDirection="column">
           {errorsState.map((error, index) => (
             <Box key={index}>
-              <Text color="red">{currentTime()} </Text>
               <Text color="red">{error.message}</Text>
             </Box>
           ))}

@@ -19,13 +19,15 @@ export const pollAppLogsForLogs = async ({
   const response = await fetchAppLogs(url, jwtToken)
 
   if (!response.ok) {
-    const responseText = await response.text()
+    const responseJson = (await response.json()) as {
+      errors: string[]
+    }
     if (response.status === 401 || response.status === 429 || response.status >= 500) {
       return {
-        errors: [{status: response.status, message: `${response.statusText}`}],
+        errors: [{status: response.status, message: `${responseJson.errors.join(', ')}`}],
       }
     } else {
-      const error = new AbortError(`Error while fetching: ${responseText}`)
+      const error = new AbortError(`Error while fetching: ${responseJson.errors.join(', ')}`)
       renderFatalError(error)
     }
   }

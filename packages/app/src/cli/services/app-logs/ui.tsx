@@ -61,11 +61,18 @@ export async function renderLogs({
       const {cursor: newCursor, errors, appLogs} = await logsProcess({jwtToken, cursor, filters})
       if (errors && errors.length > 0) {
         if (errors.some((error) => error.status === 429)) {
-          handleErrors(errors)
+          handleErrors([
+            ...errors,
+            {status: 429, message: `Resubscribing in ${POLLING_THROTTLE_RETRY_INTERVAL_MS / 1000}s`},
+          ])
           nextInterval = POLLING_THROTTLE_RETRY_INTERVAL_MS
         } else if (errors.some((error) => error.status === 401)) {
           handleJwtUpdate(null)
         } else {
+          handleErrors([
+            ...errors,
+            {status: 400, message: `Resubscribing in ${POLLING_ERROR_RETRY_INTERVAL_MS / 1000}s`},
+          ])
           nextInterval = POLLING_ERROR_RETRY_INTERVAL_MS
         }
       } else {
