@@ -1,11 +1,17 @@
-import {PollOptions, FunctionRunLog} from '../../types.js'
-import {currentTime} from '../../utils.js'
+import {PollOptions, FunctionRunLog, LogsProcess} from '../../types.js'
+import {currentTime, parseFunctionRunPayload} from '../../utils.js'
+import {
+  POLLING_ERROR_RETRY_INTERVAL_MS,
+  ONE_MILLION,
+  POLLING_INTERVAL_MS,
+  POLLING_THROTTLE_RETRY_INTERVAL_MS,
+} from '../../constants.js'
 import React, {FunctionComponent, useRef, useState, useEffect} from 'react'
 
 import {Static, Box, Text} from '@shopify/cli-kit/node/ink'
 
 export interface LogsProps {
-  errorHandledLogsProcess: ErrorHandleLogsProcess
+  pollAppLogs: LogsProcess
   resubscribeCallback: () => Promise<string>
   pollOptions: PollOptions
 }
@@ -17,37 +23,13 @@ interface AppLogPrefix {
   functionId: string
 }
 
-interface ErrorHandleProcessInput {
-  handleJwtUpdate: (jwtToken: string | null) => void
-  handleErrors: (error: {status: number; message: string}[]) => void
-  handleAppLog: (input: ProcessOutout) => void
-  jwtToken: string
-  cursor: string
-  filters?: {
-    status?: string
-    source?: string
-  }
-}
-
-type ErrorHandleLogsProcess = ({
-  handleJwtUpdate,
-  jwtToken,
-  cursor,
-  handleErrors,
-  handleAppLog,
-  filters,
-}: ErrorHandleProcessInput) => Promise<{
-  cursor: string
-  nextInterval: number
-}>
-
 export interface ProcessOutout {
   prefix: AppLogPrefix
   appLog: FunctionRunLog
 }
 
 const Logs: FunctionComponent<LogsProps> = ({
-  errorHandledLogsProcess: logsProcess,
+  pollAppLogs,
   pollOptions: {cursor = '', jwtToken, filters},
   resubscribeCallback,
 }) => {
@@ -56,26 +38,10 @@ const Logs: FunctionComponent<LogsProps> = ({
   const [errorsState, setErrorsState] = useState<{status: number; message: string}[]>([])
   const [jwtTokenState, setJwtTokenState] = useState<string | null>(jwtToken)
 
-  const handleAppLogErrors = (error: {status: number; message: string}[]) => {
-    const userFacingErrors = error.filter((error) => {
-      return error.status === 401 || error.status === 429 || error.status >= 500
-    })
-    if (userFacingErrors) {
-      const errors = error.map((error) => {
-        return {status: error.status, message: error.message}
-      })
-      setErrorsState(errors)
-    } else {
-      setErrorsState([{status: 500, message: 'Error while fetching'}])
-    }
-  }
-
-  const handleAppLog = ({appLog, prefix}: {appLog: FunctionRunLog; prefix: AppLogPrefix}) => {
-    setProcessOutputs((prev) => [...prev, {appLog, prefix}])
-  }
-
   useEffect(() => {
     const pollLogs = async (currentCursor: string) => {
+      let nextCursor = currentCursor
+      let nextInterval = POLLING_INTERVAL_MS
       try {
         if (jwtTokenState === null) {
           try {
@@ -85,22 +51,52 @@ const Logs: FunctionComponent<LogsProps> = ({
           } catch (error) {
             throw new Error("Couldn't resubscribe.")
           }
-        }
-        const {cursor, nextInterval} = await logsProcess({
-          jwtToken: jwtTokenState || jwtToken,
-          cursor: currentCursor,
-          filters,
-          handleErrors: handleAppLogErrors,
-          handleAppLog,
-          handleJwtUpdate: setJwtTokenState,
-        })
+        } else {
+          const {
+            cursor: newCursor,
+            errors,
+            appLogs = [],
+          } = await pollAppLogs({jwtToken: jwtTokenState, cursor: currentCursor, filters})
+          nextCursor = newCursor || currentCursor
+          if (errors && errors.length > 0) {
+            if (errors.some((error) => error.status === 429)) {
+              setErrorsState([
+                ...errors,
+                {status: 429, message: `Retrying in ${POLLING_THROTTLE_RETRY_INTERVAL_MS / 1000}s`},
+              ])
+              nextInterval = POLLING_THROTTLE_RETRY_INTERVAL_MS
+            } else if (errors.some((error) => error.status === 401)) {
+              setJwtTokenState(null)
+            } else {
+              setErrorsState([
+                ...errors,
+                {status: 400, message: `Retrying in ${POLLING_ERROR_RETRY_INTERVAL_MS / 1000}s`},
+              ])
+              nextInterval = POLLING_ERROR_RETRY_INTERVAL_MS
+            }
+          } else {
+            setErrorsState([])
+          }
 
+          for (const log of appLogs) {
+            const appLog = parseFunctionRunPayload(log.payload)
+            const fuel = (appLog.fuelConsumed / ONE_MILLION).toFixed(4)
+            const prefix = {
+              status: log.status === 'success' ? 'Success' : 'Failure',
+              source: log.source,
+              fuelConsumed: fuel,
+              functionId: appLog.functionId,
+            }
+
+            setProcessOutputs((prev) => [...prev, {appLog, prefix}])
+          }
+        }
         // eslint-disable-next-line @typescript-eslint/no-misused-promises
         pollingInterval.current = setTimeout(() => {
-          return pollLogs(cursor || currentCursor)
+          return pollLogs(nextCursor)
         }, nextInterval)
       } catch (error) {
-        throw new Error('Error polling logs')
+        throw new Error('Error handling logs')
       }
     }
 
