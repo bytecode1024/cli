@@ -1,5 +1,5 @@
-import {PollOptions, FunctionRunLog, LogsProcess} from '../../types.js'
-import {currentTime, parseFunctionRunPayload} from '../../utils.js'
+import {PollOptions, FunctionRunLog, AppLogData} from '../../types.js'
+import {parseFunctionRunPayload, prettyPrintJsonIfPossible} from '../../utils.js'
 import {
   POLLING_ERROR_RETRY_INTERVAL_MS,
   ONE_MILLION,
@@ -11,7 +11,14 @@ import React, {FunctionComponent, useRef, useState, useEffect} from 'react'
 import {Static, Box, Text} from '@shopify/cli-kit/node/ink'
 
 export interface LogsProps {
-  pollAppLogs: LogsProcess
+  pollAppLogs: ({jwtToken, cursor, filters}: PollOptions) => Promise<{
+    cursor?: string
+    errors?: {
+      status: number
+      message: string
+    }[]
+    appLogs?: AppLogData[]
+  }>
   resubscribeCallback: () => Promise<string>
   pollOptions: PollOptions
 }
@@ -21,6 +28,7 @@ interface AppLogPrefix {
   source: string
   fuelConsumed: string
   functionId: string
+  logTimestamp: string
 }
 
 export interface ProcessOutout {
@@ -55,9 +63,10 @@ const Logs: FunctionComponent<LogsProps> = ({
           const {
             cursor: newCursor,
             errors,
-            appLogs = [],
+            appLogs,
           } = await pollAppLogs({jwtToken: jwtTokenState, cursor: currentCursor, filters})
-          nextCursor = newCursor || currentCursor
+          nextCursor = newCursor || currentCursor // should we invoke with '' or currentCursor?
+
           if (errors && errors.length > 0) {
             if (errors.some((error) => error.status === 429)) {
               setErrorsState([
@@ -78,17 +87,24 @@ const Logs: FunctionComponent<LogsProps> = ({
             setErrorsState([])
           }
 
-          for (const log of appLogs) {
-            const appLog = parseFunctionRunPayload(log.payload)
-            const fuel = (appLog.fuelConsumed / ONE_MILLION).toFixed(4)
-            const prefix = {
-              status: log.status === 'success' ? 'Success' : 'Failure',
-              source: log.source,
-              fuelConsumed: fuel,
-              functionId: appLog.functionId,
-            }
+          if (appLogs) {
+            for (const log of appLogs) {
+              // console.log(log)
+              const appLog = parseFunctionRunPayload(log.payload)
+              const fuel = (appLog.fuelConsumed / ONE_MILLION).toFixed(4)
+              const prefix = {
+                status: log.status === 'success' ? 'Success' : 'Failure',
+                source: log.source,
+                fuelConsumed: fuel,
+                functionId: appLog.functionId,
+                logTimestamp: log.log_timestamp,
+              }
 
-            setProcessOutputs((prev) => [...prev, {appLog, prefix}])
+              setProcessOutputs((prev) => [...prev, {appLog, prefix}])
+            }
+          } else {
+            // TODO:
+            // if there no apps logs, display message saying 'waiting for app logs'
           }
         }
         // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -108,7 +124,7 @@ const Logs: FunctionComponent<LogsProps> = ({
         clearTimeout(pollingInterval.current)
       }
     }
-  }, [cursor, jwtToken])
+  }, [jwtTokenState])
 
   return (
     <>
@@ -126,7 +142,7 @@ const Logs: FunctionComponent<LogsProps> = ({
           <Box flexDirection="column" key={index}>
             {/* update: use invocationId after https://github.com/Shopify/shopify-functions/issues/235 */}
             <Box flexDirection="row" gap={0.5}>
-              <Text color="green">{currentTime()} </Text>
+              <Text color="green">{prefix.logTimestamp} </Text>
               <Text color="blueBright">{`${prefix.source}`}</Text>
               <Text color={prefix.status === 'Success' ? 'green' : 'red'}>{`${prefix.status}`}</Text>
               <Text> {`${prefix.functionId}`}</Text>
@@ -163,18 +179,3 @@ const Logs: FunctionComponent<LogsProps> = ({
 }
 
 export {Logs}
-
-function prettyPrintJsonIfPossible(json: unknown) {
-  try {
-    if (typeof json === 'string') {
-      const jsonObject = JSON.parse(json)
-      return JSON.stringify(jsonObject, null, 2)
-    } else if (typeof json === 'object' && json !== null) {
-      return JSON.stringify(json, null, 2)
-    } else {
-      return json
-    }
-  } catch (error) {
-    throw new Error(`Error parsing JSON: ${error}`)
-  }
-}

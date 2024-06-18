@@ -1,80 +1,115 @@
+import {Logs} from './Logs.js'
 import {pollAppLogsForLogs} from '../../poll-app-logs-for-logs.js'
-import {describe, test, vi, beforeEach} from 'vitest'
+import {AppLogData} from '../../types.js'
+import {ONE_MILLION} from '../../helpers.js'
+import {describe, test, vi, beforeEach, afterEach, expect} from 'vitest'
 import {partnersFqdn} from '@shopify/cli-kit/node/context/fqdn'
+import {render} from '@shopify/cli-kit/node/testing/ui'
+import React from 'react'
+import {unstyled} from '@shopify/cli-kit/node/output'
 
 vi.mock('../../poll-app-logs-for-logs.js')
-vi.mock('../../helpers.js')
 
 const FQDN = await partnersFqdn()
 const MOCK_URL = '/app_logs/poll?cursor=mockedCursor'
 const MOCKED_JWT_TOKEN = 'mockedJwtToken'
 const MOCKED_CURSOR = 'mockedCursor'
 const RETURNED_CURSOR = '2024-05-23T19:17:02.321773Z'
+const FUNCTION_ID = 'e57b4d31-2038-49ff-a0a1-1eea532414f7'
+const FUEL_CONSUMED = 512436
+const TIME = '2024-06-18 16:02:04.868'
 
-const RESPONSE_DATA_SUCCESS = {
+const LOG_TYPE = 'function-run'
+const STATUS = 'success'
+const SOURCE = 'my-function'
+const LOGS = 'test logs'
+const OUTPUT = {test: 'output'}
+const INPUT = {test: 'input'}
+const INPUT_BYTES = 10
+const OUTPUT_BYTES = 10
+
+const RESPONSE_DATA_SUCCESS: {
+  app_logs: AppLogData[]
+  cursor: string
+} = {
   app_logs: [
     {
       shop_id: 1,
       api_client_id: 1830457,
       payload: JSON.stringify({
-        input: JSON.stringify({}),
-        input_bytes: 123,
-        output: JSON.stringify({}),
-        output_bytes: 182,
-        function_id: 'e57b4d31-2038-49ff-a0a1-1eea532414f7',
-        logs: '1\\n2\\n3\\n4\\n',
-        fuel_consumed: 512436,
+        input: INPUT,
+        input_bytes: INPUT_BYTES,
+        output: OUTPUT,
+        output_bytes: OUTPUT_BYTES,
+        function_id: FUNCTION_ID,
+        logs: LOGS,
+        fuel_consumed: FUEL_CONSUMED,
       }),
-      log_type: 'function_run',
+      log_type: LOG_TYPE,
       cursor: RETURNED_CURSOR,
-      status: 'success',
-      source: 'my-function',
+      status: STATUS,
+      source: SOURCE,
       source_namespace: 'extensions',
-      log_timestamp: '2024-05-23T19:17:00.240053Z',
+      log_timestamp: TIME,
     },
   ],
   cursor: RETURNED_CURSOR,
 }
 
-const createMockResponse = (data: unknown, status = 200, statusText = 'OK') => {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    statusText,
-    json: async () => data,
-    text: async () => JSON.stringify(data),
-  }
-}
-
 describe('Logs', () => {
-  let mockedLogProcess: typeof pollAppLogsForLogs
-  beforeEach(() => {
-    vi.mocked(pollAppLogsForLogs).mockImplementation(mockedLogProcess)
+  let mockedPollAppLogs: typeof pollAppLogsForLogs
 
-    // TO STUB:
-    // The <Logs /> component is a React component that fetches logs from the server and displays them in the terminal.
-    // its takes in errorHandledLogsProcess, which is appLogsForLogs, and the errors and output are handled and to be used by the Logs component
-    // In this error handle process, the rebscrube will need to be mocked
-    // and the app fetch will need to be mocked
-    // fetchAppLogs needed to be mocked, we have example of this
-    // option1: alternatively, just mock pollAppLogsForLogs and return the expected response
+  beforeEach(() => {
+    vi.mocked(pollAppLogsForLogs).mockImplementation(mockedPollAppLogs)
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.clearAllTimers()
   })
 
   test('renders logs on successful polling', async () => {
     // Given
-    mockedLogProcess = vi.fn().mockResolvedValueOnce(createMockResponse(RESPONSE_DATA_SUCCESS))
+    mockedPollAppLogs = vi.fn().mockResolvedValue(RESPONSE_DATA_SUCCESS)
 
-    // option1: mock pollAppLogsForLogs and return the expected response
-    //     this needs to get mocked: so that data is returned as expected
-    /*
+    // When
+    const renderInstance = render(
+      <Logs
+        pollAppLogs={mockedPollAppLogs}
+        pollOptions={{jwtToken: MOCKED_JWT_TOKEN, cursor: MOCKED_CURSOR}}
+        resubscribeCallback={vi.fn().mockResolvedValueOnce(MOCKED_JWT_TOKEN)}
+      />,
+    )
 
-  const data = (await response.json()) as {
-    app_logs?: AppLogData[]
-    cursor?: string
-    errors?: string[]
-  }
-aka need to make sure the response.json(), returns the expected data
-*/
+    // Then
+    expect(vi.getTimerCount()).toEqual(0)
+
+    // Time less then the second poll
+    await vi.advanceTimersByTimeAsync(1)
+
+    expect(vi.getTimerCount()).toEqual(1)
+
+    const lastFrame = renderInstance.lastFrame()
+
+    expect(unstyled(lastFrame!)).toMatchInlineSnapshot(`
+      "${TIME} ${SOURCE} ${STATUS === 'success' ? 'Success' : 'Failure'} ${FUNCTION_ID} in ${(
+      FUEL_CONSUMED / ONE_MILLION
+    ).toFixed(4)} M instructions
+      test logs
+      Input (${INPUT_BYTES} bytes):
+      {
+        \\"test\\": \\"input\\"
+      }
+      Output (${OUTPUT_BYTES} bytes):
+      {
+        \\"test\\": \\"output\\"
+      }
+      "
+    `)
+
+    // Add Second Poll
+
+    renderInstance.unmount()
   })
 
   test('re-subscribes when jwtToken is null', async () => {})

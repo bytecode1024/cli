@@ -106,3 +106,18 @@ export function currentTime() {
 function addLeadingZero(number: number, length = 2) {
   return number.toString().padStart(length, '0')
 }
+
+export function prettyPrintJsonIfPossible(json: unknown) {
+  try {
+    if (typeof json === 'string') {
+      const jsonObject = JSON.parse(json)
+      return JSON.stringify(jsonObject, null, 2)
+    } else if (typeof json === 'object' && json !== null) {
+      return JSON.stringify(json, null, 2)
+    } else {
+      return json
+    }
+  } catch (error) {
+    throw new Error(`Error parsing JSON: ${error}`)
+  }
+}

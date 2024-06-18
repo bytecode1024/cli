@@ -51,7 +51,7 @@ interface PollResponse {
     status: number
     message: string
   }[]
-  appLogs?: AppLogData[]
+  app_logs?: AppLogData[]
 }
 
 export type LogsProcess = (pollOptions: PollOptions) => Promise<PollResponse>
