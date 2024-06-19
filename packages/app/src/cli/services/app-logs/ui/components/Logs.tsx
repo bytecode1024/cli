@@ -1,4 +1,4 @@
-import usePollAppLogs from './hooks/usePollAppLogs.js'
+import {usePollAppLogs} from './hooks/usePollAppLogs.js'
 import {PollOptions, FunctionRunLog, AppLogPrefix} from '../../types.js'
 import {prettyPrintJsonIfPossible} from '../../utils.js'
 
@@ -12,11 +12,11 @@ export interface LogsProps {
 }
 
 const Logs: FunctionComponent<LogsProps> = ({pollOptions: {jwtToken, filters}, resubscribeCallback}) => {
-  const {appLogs, errors} = usePollAppLogs({filters, initialJwt: jwtToken, resubscribeCallback})
+  const {appLogOutputs, errors} = usePollAppLogs({filters, initialJwt: jwtToken, resubscribeCallback})
 
   return (
     <>
-      <Static items={appLogs}>
+      <Static items={appLogOutputs}>
         {(
           {
             appLog,

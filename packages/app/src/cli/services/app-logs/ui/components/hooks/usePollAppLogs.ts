@@ -18,9 +18,10 @@ interface UsePollAppLogsOptions {
   resubscribeCallback: () => Promise<string>
 }
 
-export default function usePollAppLogs({initialJwt, filters, resubscribeCallback}: UsePollAppLogsOptions) {
+export function usePollAppLogs({initialJwt, filters, resubscribeCallback}: UsePollAppLogsOptions) {
+  // console.log('usePollAppLogs')
   const [errors, setErrors] = useState<string[]>([])
-  const [appLogs, setAppLogs] = useState<AppLogOutput[]>([])
+  const [appLogOutputs, setAppLogOutputs] = useState<AppLogOutput[]>([])
   const [jwtToken, setJwtToken] = useState<string | null>(initialJwt)
   const pollTimeoutRef = useRef<NodeJS.Timeout>()
   const cursorRef = useRef<string>('')
@@ -38,7 +39,12 @@ export default function usePollAppLogs({initialJwt, filters, resubscribeCallback
           }
         } else {
           const response = await pollAppLogsForLogs({jwtToken, cursor: cursorRef.current, filters})
-          const {appLogs, errors, cursor: newCursor} = response
+          const appLogs = response.appLogs
+          const errors = response.errors
+          const newCursor = response.cursor
+          console.log('the response')
+          console.log(response)
+          // const {appLogs, errors, cursor: newCursor} = response
 
           // eslint-disable-next-line require-atomic-updates
           cursorRef.current = newCursor ?? cursorRef.current
@@ -49,6 +55,7 @@ export default function usePollAppLogs({initialJwt, filters, resubscribeCallback
               setErrors([...errorsStrings, `Retrying in ${POLLING_THROTTLE_RETRY_INTERVAL_MS / 1000}s`])
               nextInterval = POLLING_THROTTLE_RETRY_INTERVAL_MS
             } else if (errors.some((error) => error.status === 401)) {
+              console.log('setting jwt token to null')
               setJwtToken(null)
             } else {
               setErrors([...errorsStrings, `Retrying in ${POLLING_ERROR_RETRY_INTERVAL_MS / 1000}s`])
@@ -70,7 +77,9 @@ export default function usePollAppLogs({initialJwt, filters, resubscribeCallback
                 logTimestamp: log.log_timestamp,
               }
 
-              setAppLogs((prev) => [...prev, {appLog, prefix}])
+              console.log('setting app log')
+              console.log(appLog)
+              setAppLogOutputs((prev) => [...prev, {appLog, prefix}])
             }
           }
         }
@@ -93,5 +102,5 @@ export default function usePollAppLogs({initialJwt, filters, resubscribeCallback
     }
   }, [jwtToken, filters])
 
-  return {appLogs, errors}
+  return {appLogOutputs, errors}
 }
