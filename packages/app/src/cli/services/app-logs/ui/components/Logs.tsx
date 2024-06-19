@@ -43,44 +43,53 @@ const Logs: FunctionComponent<LogsProps> = ({
 }) => {
   const pollingInterval = useRef<NodeJS.Timeout>()
   const [processOutputs, setProcessOutputs] = useState<ProcessOutout[]>([])
-  const [errorsState, setErrorsState] = useState<{status: number; message: string}[]>([])
-  const [jwtTokenState, setJwtTokenState] = useState<string | null>(jwtToken)
-
+  const [errorsState, setErrorsState] = useState<string[]>([])
+  const jwtTokenRef = useRef<string | null>(jwtToken)
   useEffect(() => {
     const pollLogs = async (currentCursor: string) => {
-      let nextCursor = currentCursor
+      const nextCursor = currentCursor
       let nextInterval = POLLING_INTERVAL_MS
       try {
-        if (jwtTokenState === null) {
+        if (jwtTokenRef.current === null) {
           try {
-            const jwtToken = await resubscribeCallback()
+            const newJwtToken = await resubscribeCallback()
 
-            setJwtTokenState(jwtToken)
+            jwtTokenRef.current = newJwtToken
           } catch (error) {
             throw new Error("Couldn't resubscribe.")
           }
         } else {
-          const {
-            cursor: newCursor,
-            errors,
-            appLogs,
-          } = await pollAppLogs({jwtToken: jwtTokenState, cursor: currentCursor, filters})
-          nextCursor = newCursor || currentCursor // should we invoke with '' or currentCursor?
+          // const {
+          //   cursor: newCursor,
+          //   errors,
+          //   appLogs,
+          // } = await pollAppLogs({jwtToken: jwtTokenState, cursor: currentCursor, filters})
+          const response = await pollAppLogs({jwtToken: jwtTokenRef.current, cursor: currentCursor, filters})
+          // console.log("appLogs", appLogs)
+          // console.log("errors", errors)
+          // console.log("newCursor", newCursor)
+          // nextCursor = newCursor || currentCursor // should we invoke with '' or currentCursor?
+
+          console.log('hello?')
+          console.log(response)
+
+          const appLogs = response?.appLogs
+          const errors = response?.errors
+          const newCursor = response?.cursor
+
+          // console.log("appLogs", appLogs)
+          // console.log("errors", errors)
+          // console.log("newCursor", newCursor)
 
           if (errors && errors.length > 0) {
+            const errorsStrings = errors.map((error) => error.message)
             if (errors.some((error) => error.status === 429)) {
-              setErrorsState([
-                ...errors,
-                {status: 429, message: `Retrying in ${POLLING_THROTTLE_RETRY_INTERVAL_MS / 1000}s`},
-              ])
+              setErrorsState([...errorsStrings, `Retrying in ${POLLING_THROTTLE_RETRY_INTERVAL_MS / 1000}s`])
               nextInterval = POLLING_THROTTLE_RETRY_INTERVAL_MS
             } else if (errors.some((error) => error.status === 401)) {
-              setJwtTokenState(null)
+              jwtTokenRef.current = null
             } else {
-              setErrorsState([
-                ...errors,
-                {status: 400, message: `Retrying in ${POLLING_ERROR_RETRY_INTERVAL_MS / 1000}s`},
-              ])
+              setErrorsState([...errorsStrings, `Retrying in ${POLLING_ERROR_RETRY_INTERVAL_MS / 1000}s`])
               nextInterval = POLLING_ERROR_RETRY_INTERVAL_MS
             }
           } else {
@@ -102,9 +111,6 @@ const Logs: FunctionComponent<LogsProps> = ({
 
               setProcessOutputs((prev) => [...prev, {appLog, prefix}])
             }
-          } else {
-            // TODO:
-            // if there no apps logs, display message saying 'waiting for app logs'
           }
         }
         // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -112,7 +118,7 @@ const Logs: FunctionComponent<LogsProps> = ({
           return pollLogs(nextCursor)
         }, nextInterval)
       } catch (error) {
-        throw new Error('Error handling logs')
+        throw new Error(`Error handling logs: ${error}`)
       }
     }
 
@@ -124,7 +130,7 @@ const Logs: FunctionComponent<LogsProps> = ({
         clearTimeout(pollingInterval.current)
       }
     }
-  }, [jwtTokenState])
+  }, [jwtTokenRef])
 
   return (
     <>
@@ -169,7 +175,7 @@ const Logs: FunctionComponent<LogsProps> = ({
         <Box flexDirection="column">
           {errorsState.map((error, index) => (
             <Box key={index}>
-              <Text color="red">{error.message}</Text>
+              <Text color="red">{error}</Text>
             </Box>
           ))}
         </Box>

@@ -1,4 +1,4 @@
-import {fetchAppLogs, generateFetchAppLogUrl} from './helpers.js'
+import {fetchAppLogs, generateFetchAppLogUrl} from './utils.js'
 import {pollAppLogsForLogs} from './poll-app-logs-for-logs.js'
 import {describe, test, vi, expect} from 'vitest'
 import {partnersFqdn} from '@shopify/cli-kit/node/context/fqdn'
@@ -6,7 +6,7 @@ import {partnersFqdn} from '@shopify/cli-kit/node/context/fqdn'
 vi.mock('@shopify/cli-kit/node/output')
 vi.mock('@shopify/cli-kit/node/context/fqdn')
 vi.mock('@shopify/cli-kit/node/http')
-vi.mock('./helpers.js')
+vi.mock('./utils.js')
 
 const FQDN = await partnersFqdn()
 const MOCK_URL = '/app_logs/poll?cursor=mockedCursor'

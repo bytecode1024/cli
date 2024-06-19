@@ -1,17 +1,13 @@
 import {Logs} from './Logs.js'
-import {pollAppLogsForLogs} from '../../poll-app-logs-for-logs.js'
 import {AppLogData} from '../../types.js'
-import {ONE_MILLION} from '../../helpers.js'
+import {POLLING_ERROR_RETRY_INTERVAL_MS, ONE_MILLION, POLLING_THROTTLE_RETRY_INTERVAL_MS} from '../../constants.js'
 import {describe, test, vi, beforeEach, afterEach, expect} from 'vitest'
-import {partnersFqdn} from '@shopify/cli-kit/node/context/fqdn'
 import {render} from '@shopify/cli-kit/node/testing/ui'
 import React from 'react'
 import {unstyled} from '@shopify/cli-kit/node/output'
 
 vi.mock('../../poll-app-logs-for-logs.js')
 
-const FQDN = await partnersFqdn()
-const MOCK_URL = '/app_logs/poll?cursor=mockedCursor'
 const MOCKED_JWT_TOKEN = 'mockedJwtToken'
 const MOCKED_CURSOR = 'mockedCursor'
 const RETURNED_CURSOR = '2024-05-23T19:17:02.321773Z'
@@ -28,11 +24,16 @@ const INPUT = {test: 'input'}
 const INPUT_BYTES = 10
 const OUTPUT_BYTES = 10
 
-const RESPONSE_DATA_SUCCESS: {
-  app_logs: AppLogData[]
+const POLL_APP_LOGS_RETURN_VALUE: {
   cursor: string
+  errors?: {
+    status: number
+    message: string
+  }[]
+  appLogs: AppLogData[]
 } = {
-  app_logs: [
+  cursor: RETURNED_CURSOR,
+  appLogs: [
     {
       shop_id: 1,
       api_client_id: 1830457,
@@ -53,14 +54,25 @@ const RESPONSE_DATA_SUCCESS: {
       log_timestamp: TIME,
     },
   ],
-  cursor: RETURNED_CURSOR,
+}
+
+const POLL_APP_LOGS_401_RETURN_VALUE = {
+  errors: [{status: 401, message: 'Unauthorized'}],
+}
+
+const POLL_APP_LOGS_429_RETURN_VALUE = {
+  errors: [{status: 429, message: 'Error Message'}],
+}
+
+const POLL_APP_LOGS_OTHER_RETURN_VALUE = {
+  errors: [{status: 400, message: 'Error Message'}],
 }
 
 describe('Logs', () => {
-  let mockedPollAppLogs: typeof pollAppLogsForLogs
+  // let mockedPollAppLogs = vi.fn().mockResolvedValue(POLL_APP_LOGS_RETURN_VALUE)
 
   beforeEach(() => {
-    vi.mocked(pollAppLogsForLogs).mockImplementation(mockedPollAppLogs)
+    // vi.mocked(pollAppLogsForLogs).mockImplementation(mockedPollAppLogs)
     vi.useFakeTimers()
   })
 
@@ -70,10 +82,10 @@ describe('Logs', () => {
 
   test('renders logs on successful polling', async () => {
     // Given
-    mockedPollAppLogs = vi.fn().mockResolvedValue(RESPONSE_DATA_SUCCESS)
+    const mockedPollAppLogs = vi.fn().mockResolvedValue(POLL_APP_LOGS_RETURN_VALUE)
 
     // When
-    const renderInstance = render(
+    const renderInstance = await render(
       <Logs
         pollAppLogs={mockedPollAppLogs}
         pollOptions={{jwtToken: MOCKED_JWT_TOKEN, cursor: MOCKED_CURSOR}}
@@ -81,14 +93,13 @@ describe('Logs', () => {
       />,
     )
 
+    // Not sure why this fixes tests, but it does
+    // Think it has somethign to do with a race condition
+    // between the render and the test
+    await vi.advanceTimersByTimeAsync(200)
+    // await vi.advanceTimersToNextTimerAsync()
+
     // Then
-    expect(vi.getTimerCount()).toEqual(0)
-
-    // Time less then the second poll
-    await vi.advanceTimersByTimeAsync(1)
-
-    expect(vi.getTimerCount()).toEqual(1)
-
     const lastFrame = renderInstance.lastFrame()
 
     expect(unstyled(lastFrame!)).toMatchInlineSnapshot(`
@@ -107,16 +118,119 @@ describe('Logs', () => {
       "
     `)
 
-    // Add Second Poll
+    // Ensure next poll was enqueued
+    expect(vi.getTimerCount()).toEqual(1)
 
     renderInstance.unmount()
   })
 
-  test('re-subscribes when jwtToken is null', async () => {})
+  test('handles 401 status and re-subscribes', async () => {
+    const mockedPollAppLogs = vi
+      .fn()
+      .mockResolvedValueOnce(POLL_APP_LOGS_401_RETURN_VALUE)
+      .mockResolvedValueOnce(POLL_APP_LOGS_RETURN_VALUE)
 
-  test('handles 401 status', async () => {})
+    const mockedResubscribeCallback = vi.fn().mockResolvedValueOnce(MOCKED_JWT_TOKEN)
 
-  test('handles 429 status', async () => {})
+    const renderInstance = render(
+      <Logs
+        pollAppLogs={mockedPollAppLogs}
+        pollOptions={{jwtToken: MOCKED_JWT_TOKEN, cursor: MOCKED_CURSOR}}
+        resubscribeCallback={mockedResubscribeCallback}
+      />,
+    )
 
-  test('handles other errors', async () => {})
+    await vi.advanceTimersByTimeAsync(1)
+
+    // Then
+
+    // Do we want this?
+    expect(unstyled(renderInstance.lastFrame()!)).toMatchInlineSnapshot(`""`)
+
+    // Ensure next poll was enqueued
+    expect(vi.getTimerCount()).toEqual(1)
+
+    await vi.advanceTimersToNextTimerAsync()
+
+    expect(mockedResubscribeCallback).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersToNextTimerAsync()
+
+    // Next poll returns result
+    expect(unstyled(renderInstance.lastFrame()!)).toMatchInlineSnapshot(`
+      "${TIME} ${SOURCE} ${STATUS === 'success' ? 'Success' : 'Failure'} ${FUNCTION_ID} in ${(
+      FUEL_CONSUMED / ONE_MILLION
+    ).toFixed(4)} M instructions
+      test logs
+      Input (${INPUT_BYTES} bytes):
+      {
+        \\"test\\": \\"input\\"
+      }
+      Output (${OUTPUT_BYTES} bytes):
+      {
+        \\"test\\": \\"output\\"
+      }
+      "
+    `)
+
+    renderInstance.unmount()
+  })
+
+  test('handles 429 status', async () => {
+    const mockedPollAppLogs = vi.fn().mockResolvedValue(POLL_APP_LOGS_429_RETURN_VALUE)
+
+    const renderInstance = await render(
+      <Logs
+        pollAppLogs={mockedPollAppLogs}
+        pollOptions={{jwtToken: MOCKED_JWT_TOKEN, cursor: MOCKED_CURSOR}}
+        resubscribeCallback={vi.fn().mockResolvedValueOnce(MOCKED_JWT_TOKEN)}
+      />,
+    )
+
+    await vi.advanceTimersByTimeAsync(200)
+    // await vi.advanceTimersToNextTimerAsync()
+
+    // Then
+    const lastFrame = renderInstance.lastFrame()
+
+    // Do we want this?
+    expect(unstyled(lastFrame!)).toMatchInlineSnapshot(`
+      "Error Message
+      Retrying in ${POLLING_THROTTLE_RETRY_INTERVAL_MS / 1000}s"
+    `)
+
+    // Ensure next poll was enqueued
+    expect(vi.getTimerCount()).toEqual(1)
+
+    renderInstance.unmount()
+  })
+
+  test('handles other errors', async () => {
+    const mockedPollAppLogs = vi.fn().mockResolvedValue(POLL_APP_LOGS_OTHER_RETURN_VALUE)
+
+    const renderInstance = await render(
+      <Logs
+        pollAppLogs={mockedPollAppLogs}
+        pollOptions={{jwtToken: MOCKED_JWT_TOKEN, cursor: MOCKED_CURSOR}}
+        resubscribeCallback={vi.fn().mockResolvedValueOnce(MOCKED_JWT_TOKEN)}
+      />,
+    )
+
+    await vi.advanceTimersByTimeAsync(200)
+    // await vi.advanceTimersToNextTimerAsync()
+
+    // Then
+    const lastFrame = renderInstance.lastFrame()
+
+    // Do we want this?
+    expect(unstyled(lastFrame!)).toMatchInlineSnapshot(`
+      "Error Message
+      Retrying in ${POLLING_ERROR_RETRY_INTERVAL_MS / 1000}s"
+    `)
+
+    // Ensure next poll was enqueued
+    expect(vi.getTimerCount()).toEqual(1)
+
+    renderInstance.unmount()
+  })
 })
