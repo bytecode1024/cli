@@ -1,140 +1,22 @@
-import {PollOptions, FunctionRunLog, AppLogData} from '../../types.js'
-import {parseFunctionRunPayload, prettyPrintJsonIfPossible} from '../../utils.js'
-import {
-  POLLING_ERROR_RETRY_INTERVAL_MS,
-  ONE_MILLION,
-  POLLING_INTERVAL_MS,
-  POLLING_THROTTLE_RETRY_INTERVAL_MS,
-} from '../../constants.js'
-import React, {FunctionComponent, useRef, useState, useEffect} from 'react'
+import usePollAppLogs from './hooks/usePollAppLogs.js'
+import {PollOptions, FunctionRunLog, AppLogPrefix} from '../../types.js'
+import {prettyPrintJsonIfPossible} from '../../utils.js'
+
+import React, {FunctionComponent} from 'react'
 
 import {Static, Box, Text} from '@shopify/cli-kit/node/ink'
 
 export interface LogsProps {
-  pollAppLogs: ({jwtToken, cursor, filters}: PollOptions) => Promise<{
-    cursor?: string
-    errors?: {
-      status: number
-      message: string
-    }[]
-    appLogs?: AppLogData[]
-  }>
   resubscribeCallback: () => Promise<string>
   pollOptions: PollOptions
 }
 
-interface AppLogPrefix {
-  status: string
-  source: string
-  fuelConsumed: string
-  functionId: string
-  logTimestamp: string
-}
-
-export interface ProcessOutout {
-  prefix: AppLogPrefix
-  appLog: FunctionRunLog
-}
-
-const Logs: FunctionComponent<LogsProps> = ({
-  pollAppLogs,
-  pollOptions: {cursor = '', jwtToken, filters},
-  resubscribeCallback,
-}) => {
-  const pollingInterval = useRef<NodeJS.Timeout>()
-  const [processOutputs, setProcessOutputs] = useState<ProcessOutout[]>([])
-  const [errorsState, setErrorsState] = useState<string[]>([])
-  const jwtTokenRef = useRef<string | null>(jwtToken)
-  useEffect(() => {
-    const pollLogs = async (currentCursor: string) => {
-      const nextCursor = currentCursor
-      let nextInterval = POLLING_INTERVAL_MS
-      try {
-        if (jwtTokenRef.current === null) {
-          try {
-            const newJwtToken = await resubscribeCallback()
-
-            jwtTokenRef.current = newJwtToken
-          } catch (error) {
-            throw new Error("Couldn't resubscribe.")
-          }
-        } else {
-          // const {
-          //   cursor: newCursor,
-          //   errors,
-          //   appLogs,
-          // } = await pollAppLogs({jwtToken: jwtTokenState, cursor: currentCursor, filters})
-          const response = await pollAppLogs({jwtToken: jwtTokenRef.current, cursor: currentCursor, filters})
-          // console.log("appLogs", appLogs)
-          // console.log("errors", errors)
-          // console.log("newCursor", newCursor)
-          // nextCursor = newCursor || currentCursor // should we invoke with '' or currentCursor?
-
-          console.log('hello?')
-          console.log(response)
-
-          const appLogs = response?.appLogs
-          const errors = response?.errors
-          const newCursor = response?.cursor
-
-          // console.log("appLogs", appLogs)
-          // console.log("errors", errors)
-          // console.log("newCursor", newCursor)
-
-          if (errors && errors.length > 0) {
-            const errorsStrings = errors.map((error) => error.message)
-            if (errors.some((error) => error.status === 429)) {
-              setErrorsState([...errorsStrings, `Retrying in ${POLLING_THROTTLE_RETRY_INTERVAL_MS / 1000}s`])
-              nextInterval = POLLING_THROTTLE_RETRY_INTERVAL_MS
-            } else if (errors.some((error) => error.status === 401)) {
-              jwtTokenRef.current = null
-            } else {
-              setErrorsState([...errorsStrings, `Retrying in ${POLLING_ERROR_RETRY_INTERVAL_MS / 1000}s`])
-              nextInterval = POLLING_ERROR_RETRY_INTERVAL_MS
-            }
-          } else {
-            setErrorsState([])
-          }
-
-          if (appLogs) {
-            for (const log of appLogs) {
-              // console.log(log)
-              const appLog = parseFunctionRunPayload(log.payload)
-              const fuel = (appLog.fuelConsumed / ONE_MILLION).toFixed(4)
-              const prefix = {
-                status: log.status === 'success' ? 'Success' : 'Failure',
-                source: log.source,
-                fuelConsumed: fuel,
-                functionId: appLog.functionId,
-                logTimestamp: log.log_timestamp,
-              }
-
-              setProcessOutputs((prev) => [...prev, {appLog, prefix}])
-            }
-          }
-        }
-        // eslint-disable-next-line @typescript-eslint/no-misused-promises
-        pollingInterval.current = setTimeout(() => {
-          return pollLogs(nextCursor)
-        }, nextInterval)
-      } catch (error) {
-        throw new Error(`Error handling logs: ${error}`)
-      }
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    pollLogs(cursor)
-
-    return () => {
-      if (pollingInterval.current) {
-        clearTimeout(pollingInterval.current)
-      }
-    }
-  }, [jwtTokenRef])
+const Logs: FunctionComponent<LogsProps> = ({pollOptions: {jwtToken, filters}, resubscribeCallback}) => {
+  const {appLogs, errors} = usePollAppLogs({filters, initialJwt: jwtToken, resubscribeCallback})
 
   return (
     <>
-      <Static items={processOutputs}>
+      <Static items={appLogs}>
         {(
           {
             appLog,
@@ -171,9 +53,9 @@ const Logs: FunctionComponent<LogsProps> = ({
         )}
       </Static>
 
-      {errorsState.length > 0 && (
+      {errors.length > 0 && (
         <Box flexDirection="column">
-          {errorsState.map((error, index) => (
+          {errors.map((error, index) => (
             <Box key={index}>
               <Text color="red">{error}</Text>
             </Box>

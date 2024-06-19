@@ -55,3 +55,16 @@ interface PollResponse {
 }
 
 export type LogsProcess = (pollOptions: PollOptions) => Promise<PollResponse>
+
+export interface AppLogPrefix {
+  status: string
+  source: string
+  fuelConsumed: string
+  functionId: string
+  logTimestamp: string
+}
+
+export interface AppLogOutput {
+  prefix: AppLogPrefix
+  appLog: FunctionRunLog
+}

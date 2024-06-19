@@ -1,5 +1,5 @@
 import {PollOptions, AppLogData} from './types.js'
-import {generateFetchAppLogUrl, fetchAppLogs} from './utils.js'
+import {fetchAppLogs} from './utils.js'
 import {AbortError} from '@shopify/cli-kit/node/error'
 import {renderFatalError} from '@shopify/cli-kit/node/ui'
 
@@ -15,24 +15,24 @@ export const pollAppLogsForLogs = async ({
   }[]
   appLogs?: AppLogData[]
 }> => {
-  const url = await generateFetchAppLogUrl(cursor, filters)
-  const response = await fetchAppLogs(url, jwtToken)
+  const response = await fetchAppLogs(jwtToken, cursor, filters)
 
+  const responseJson = await response.json()
   if (!response.ok) {
-    const responseJson = (await response.json()) as {
+    const errorResponse = responseJson as {
       errors: string[]
     }
     if (response.status === 401 || response.status === 429 || response.status >= 500) {
       return {
-        errors: [{status: response.status, message: `${responseJson.errors.join(', ')}`}],
+        errors: [{status: response.status, message: `${errorResponse.errors.join(', ')}`}],
       }
     } else {
-      const error = new AbortError(`Error while fetching: ${responseJson.errors.join(', ')}`)
+      const error = new AbortError(`Error while fetching: ${errorResponse.errors.join(', ')}`)
       renderFatalError(error)
     }
   }
 
-  const data = (await response.json()) as {
+  const data = responseJson as {
     app_logs?: AppLogData[]
     cursor?: string
     errors?: string[]
