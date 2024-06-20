@@ -29,11 +29,10 @@ const Logs: FunctionComponent<LogsProps> = ({pollOptions: {jwtToken, filters}, r
         ) => (
           <Box flexDirection="column" key={index}>
             {/* update: use invocationId after https://github.com/Shopify/shopify-functions/issues/235 */}
-            <Box flexDirection="row" gap={0.5}>
-              <Text color="green">{prefix.logTimestamp} </Text>
+            <Box flexDirection="row" gap={1}>
+              <Text color="green">{prefix.logTimestamp}</Text>
               <Text color="blueBright">{`${prefix.source}`}</Text>
-              <Text color={prefix.status === 'Success' ? 'green' : 'red'}>{`${prefix.status}`}</Text>
-              <Text> {`${prefix.functionId}`}</Text>
+              <Text color={prefix.status === 'Success' ? 'green' : 'red'}>{prefix.status}</Text>
               <Text>in {prefix.fuelConsumed} M instructions</Text>
             </Box>
             <Text>{appLog.logs}</Text>

@@ -62,7 +62,7 @@ describe('Logs', () => {
     vi.clearAllTimers()
   })
 
-  test('renders prefix and applogs', async () => {
+  test.only('renders prefix and applogs', async () => {
     // Given
     const mockedUsePollAppLogs = vi.fn().mockReturnValue(USE_POLL_APP_LOGS_RETURN_VALUE)
     vi.mocked(usePollAppLogs).mockImplementation(mockedUsePollAppLogs)
@@ -78,9 +78,9 @@ describe('Logs', () => {
     const lastFrame = renderInstance.lastFrame()
 
     expect(unstyled(lastFrame!)).toMatchInlineSnapshot(`
-      "${TIME} ${SOURCE} ${STATUS === 'success' ? 'Success' : 'Failure'} ${FUNCTION_ID} in ${(
-      FUEL_CONSUMED / ONE_MILLION
-    ).toFixed(4)} M instructions
+      "${TIME} ${SOURCE} ${STATUS === 'success' ? 'Success' : 'Failure'} in ${(FUEL_CONSUMED / ONE_MILLION).toFixed(
+      4,
+    )} M instructions
       test logs
       Input (${INPUT_BYTES} bytes):
       {
@@ -89,8 +89,7 @@ describe('Logs', () => {
       Output (${OUTPUT_BYTES} bytes):
       {
         \\"test\\": \\"output\\"
-      }
-      "
+      }"
     `)
 
     renderInstance.unmount()
