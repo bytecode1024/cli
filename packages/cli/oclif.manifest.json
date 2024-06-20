@@ -1513,8 +1513,8 @@
       ],
       "args": {
       },
-      "description": "\n  Opens a real-time stream of detailed log events from the selected app and store. Use the `--source` argument to limit output to a particular log source, such as a Shopify Function or webhook topic. Use the `sources` subcommand to list available sources.\n  The `--json` argument can be used to receive log entries as line-delimited JSON (JSONL). By piping the output to tools like `jq`, you can filter the output to specific information.\n  ```\n  shopify app logs --json\n  ```\n  ",
-      "descriptionWithMarkdown": "\n  Opens a real-time stream of detailed log events from the selected app and store. Use the `--source` argument to limit output to a particular log source, such as a Shopify Function or webhook topic. Use the `sources` subcommand to list available sources.\n  The `--json` argument can be used to receive log entries as line-delimited JSON (JSONL). By piping the output to tools like `jq`, you can filter the output to specific information.\n  ```\n  shopify app logs --json\n  ```\n  ",
+      "description": "\n  Opens a real-time stream of detailed log events from the selected app and store. Use the `--source` argument to limit output to a particular log source, such as a Shopify Function or webhook topic.\n  ```\n  shopify app logs\n  ```\n  ",
+      "descriptionWithMarkdown": "\n  Opens a real-time stream of detailed log events from the selected app and store. Use the `--source` argument to limit output to a particular log source, such as a Shopify Function or webhook topic.\n  ```\n  shopify app logs\n  ```\n  ",
       "flags": {
         "api-key": {
           "description": "The API key of your app.",
@@ -1718,6 +1718,7 @@
         }
       },
       "hasDynamicHelp": false,
+      "hidden": true,
       "hiddenAliases": [
       ],
       "id": "app:logs",

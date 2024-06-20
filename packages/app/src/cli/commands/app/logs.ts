@@ -2,16 +2,19 @@ import Dev from './dev.js'
 import Command from '../../utilities/app-command.js'
 import {checkFolderIsValidApp} from '../../models/app/loader.js'
 import {logs} from '../../services/logs.js'
+import {environmentVariableNames} from '../../constants.js'
 import {Flags} from '@oclif/core'
+import {getEnvironmentVariables} from '@shopify/cli-kit/node/environment'
+import {isTruthy} from '@shopify/cli-kit/node/context/utilities'
 
 export default class Logs extends Command {
+  static hidden = true
   static summary = 'Stream detailed logs for your Shopify app.'
 
   static descriptionWithMarkdown = `
-  Opens a real-time stream of detailed log events from the selected app and store. Use the \`--source\` argument to limit output to a particular log source, such as a Shopify Function or webhook topic. Use the \`sources\` subcommand to list available sources.
-  The \`--json\` argument can be used to receive log entries as line-delimited JSON (JSONL). By piping the output to tools like \`jq\`, you can filter the output to specific information.
+  Opens a real-time stream of detailed log events from the selected app and store. Use the \`--source\` argument to limit output to a particular log source, such as a Shopify Function or webhook topic.
   \`\`\`
-  shopify app logs --json
+  shopify app logs
   \`\`\`
   `
 
@@ -30,6 +33,14 @@ export default class Logs extends Command {
   }
 
   public async run(): Promise<void> {
+    const env = getEnvironmentVariables()
+    const logPollingEnabled = isTruthy(env[environmentVariableNames.enableAppLogPolling])
+
+    if (!logPollingEnabled) {
+      throw new Error(
+        'This command is not released yet. You can experiment with it by setting SHOPIFY_CLI_ENABLE_APP_LOG_POLLING=1 in your env.',
+      )
+    }
     const {flags} = await this.parse(Logs)
 
     const apiKey = flags['client-id'] || flags['api-key']
