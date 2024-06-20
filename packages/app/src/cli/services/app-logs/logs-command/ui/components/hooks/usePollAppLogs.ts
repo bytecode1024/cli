@@ -11,9 +11,9 @@ import {useState, useEffect} from 'react'
 
 interface UsePollAppLogsOptions {
   initialJwt: string
-  filters?: {
-    status?: string
-    source?: string
+  filters: {
+    status: string | undefined
+    source: string | undefined
   }
   resubscribeCallback: () => Promise<string>
 }

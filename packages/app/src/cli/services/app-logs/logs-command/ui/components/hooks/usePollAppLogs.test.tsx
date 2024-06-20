@@ -65,6 +65,8 @@ const POLL_APP_LOGS_FOR_LOGS_UNKNOWN_RESPONSE = {
   errors: [{status: 422, message: 'Unprocessable'}],
 }
 
+const EMPTY_FILTERS = {status: undefined, source: undefined}
+
 describe('usePollAppLogs', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -80,7 +82,9 @@ describe('usePollAppLogs', () => {
 
     const resubscribeCallback = vi.fn().mockResolvedValue(NEW_JWT_TOKEN)
 
-    const hook = renderHook(() => usePollAppLogs({initialJwt: MOCKED_JWT_TOKEN, resubscribeCallback}))
+    const hook = renderHook(() =>
+      usePollAppLogs({initialJwt: MOCKED_JWT_TOKEN, filters: EMPTY_FILTERS, resubscribeCallback}),
+    )
 
     // needed to await the render
     await vi.advanceTimersByTimeAsync(0)
@@ -112,18 +116,22 @@ describe('usePollAppLogs', () => {
 
     const resubscribeCallback = vi.fn().mockResolvedValue(NEW_JWT_TOKEN)
 
-    renderHook(() => usePollAppLogs({initialJwt: MOCKED_JWT_TOKEN, resubscribeCallback}))
+    renderHook(() => usePollAppLogs({initialJwt: MOCKED_JWT_TOKEN, filters: EMPTY_FILTERS, resubscribeCallback}))
 
     // needed to await the render
     await vi.advanceTimersByTimeAsync(0)
 
     // Initial invocation, 401 returned
-    expect(mockedPollAppLogs).toHaveBeenNthCalledWith(1, {jwtToken: MOCKED_JWT_TOKEN, cursor: '', filters: undefined})
+    expect(mockedPollAppLogs).toHaveBeenNthCalledWith(1, {
+      jwtToken: MOCKED_JWT_TOKEN,
+      cursor: '',
+      filters: EMPTY_FILTERS,
+    })
     expect(resubscribeCallback).toHaveBeenCalledOnce()
 
     // Follow up invocation, which invokes resubscribeCallback
     await vi.advanceTimersToNextTimerAsync()
-    expect(mockedPollAppLogs).toHaveBeenNthCalledWith(2, {jwtToken: NEW_JWT_TOKEN, cursor: '', filters: undefined})
+    expect(mockedPollAppLogs).toHaveBeenNthCalledWith(2, {jwtToken: NEW_JWT_TOKEN, cursor: '', filters: EMPTY_FILTERS})
 
     expect(vi.getTimerCount()).toEqual(1)
   })
@@ -139,7 +147,9 @@ describe('usePollAppLogs', () => {
 
     const resubscribeCallback = vi.fn().mockResolvedValue(NEW_JWT_TOKEN)
 
-    const hook = renderHook(() => usePollAppLogs({initialJwt: MOCKED_JWT_TOKEN, resubscribeCallback}))
+    const hook = renderHook(() =>
+      usePollAppLogs({initialJwt: MOCKED_JWT_TOKEN, filters: EMPTY_FILTERS, resubscribeCallback}),
+    )
 
     // needed to await the render
     await vi.advanceTimersByTimeAsync(0)
@@ -171,7 +181,9 @@ describe('usePollAppLogs', () => {
 
     const resubscribeCallback = vi.fn().mockResolvedValue(NEW_JWT_TOKEN)
 
-    const hook = renderHook(() => usePollAppLogs({initialJwt: MOCKED_JWT_TOKEN, resubscribeCallback}))
+    const hook = renderHook(() =>
+      usePollAppLogs({initialJwt: MOCKED_JWT_TOKEN, filters: EMPTY_FILTERS, resubscribeCallback}),
+    )
 
     // needed to await the render
     await vi.advanceTimersByTimeAsync(0)

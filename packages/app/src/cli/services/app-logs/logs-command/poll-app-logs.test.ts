@@ -89,6 +89,8 @@ const RESPONSE_500 = {
   errors: ['500: Error'],
 }
 
+const EMPTY_FILTERS = {status: undefined, source: undefined}
+
 // Custom mock response with .json method to mock response from poll
 const createMockResponse = (data: any, status = 200, statusText = 'OK') => {
   return {
@@ -110,12 +112,30 @@ describe('pollProcess', () => {
     const result = await pollAppLogsForLogs({
       jwtToken: MOCKED_JWT_TOKEN,
       cursor: MOCKED_CURSOR,
-      filters: {},
+      filters: EMPTY_FILTERS,
     })
 
     expect(result).toEqual({
       cursor: RETURNED_CURSOR,
       appLogs: RESPONSE_DATA_SUCCESS.app_logs,
+    })
+  })
+
+  test('successful poll with filters', async () => {
+    // Given
+    const mockedFetchAppLogs = vi.fn().mockResolvedValueOnce(createMockResponse(RESPONSE_DATA_SUCCESS))
+    vi.mocked(fetchAppLogs).mockImplementation(mockedFetchAppLogs)
+
+    // // When
+    const result = await pollAppLogsForLogs({
+      jwtToken: MOCKED_JWT_TOKEN,
+      cursor: MOCKED_CURSOR,
+      filters: {status: 'failure', source: 'my-function'},
+    })
+
+    expect(result).toEqual({
+      cursor: RETURNED_CURSOR,
+      appLogs: [],
     })
   })
 
@@ -131,7 +151,7 @@ describe('pollProcess', () => {
     const result = await pollAppLogsForLogs({
       jwtToken: MOCKED_JWT_TOKEN,
       cursor: MOCKED_CURSOR,
-      filters: {},
+      filters: EMPTY_FILTERS,
     })
 
     // Then
@@ -153,7 +173,7 @@ describe('pollProcess', () => {
       pollAppLogsForLogs({
         jwtToken: MOCKED_JWT_TOKEN,
         cursor: MOCKED_CURSOR,
-        filters: {},
+        filters: EMPTY_FILTERS,
       }),
     ).rejects.toThrowError()
   })

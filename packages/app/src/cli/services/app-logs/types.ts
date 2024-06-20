@@ -37,9 +37,9 @@ export interface SubscribeOptions {
 export interface PollOptions {
   jwtToken: string
   cursor?: string
-  filters?: {
-    status?: string
-    source?: string
+  filters: {
+    status: string | undefined
+    source: string | undefined
   }
 }
 

@@ -53,6 +53,8 @@ const USE_POLL_APP_LOGS_ERRORS_RETURN_VALUE = {
   appLogOutputs: [],
 }
 
+const EMPTY_FILTERS = {status: undefined, source: undefined}
+
 describe('Logs', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -69,7 +71,7 @@ describe('Logs', () => {
     // When
     const renderInstance = render(
       <Logs
-        pollOptions={{jwtToken: MOCKED_JWT_TOKEN, cursor: MOCKED_CURSOR}}
+        pollOptions={{jwtToken: MOCKED_JWT_TOKEN, filters: EMPTY_FILTERS, cursor: MOCKED_CURSOR}}
         resubscribeCallback={vi.fn().mockResolvedValueOnce(MOCKED_JWT_TOKEN)}
       />,
     )
@@ -103,7 +105,7 @@ describe('Logs', () => {
 
     const renderInstance = render(
       <Logs
-        pollOptions={{jwtToken: MOCKED_JWT_TOKEN, cursor: MOCKED_CURSOR}}
+        pollOptions={{jwtToken: MOCKED_JWT_TOKEN, filters: EMPTY_FILTERS, cursor: MOCKED_CURSOR}}
         resubscribeCallback={mockedResubscribeCallback}
       />,
     )

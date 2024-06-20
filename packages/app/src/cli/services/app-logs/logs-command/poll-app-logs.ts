@@ -31,13 +31,29 @@ export const pollAppLogsForLogs = async ({
   }
 
   const data = responseJson as {
-    app_logs?: AppLogData[]
+    app_logs: AppLogData[]
     cursor?: string
     errors?: string[]
   }
 
+  const filteredLogs = filterLogs(data.app_logs, filters)
+
   return {
     cursor: data.cursor,
-    appLogs: data.app_logs,
+    appLogs: filteredLogs,
   }
+}
+
+function filterLogs(appLogs: AppLogData[], filters: {status: string | undefined; source: string | undefined}) {
+  let filterLogs: AppLogData[] = appLogs
+
+  if (filters.status !== undefined || filters.source !== undefined) {
+    filterLogs = filterLogs.filter((log) => {
+      const statusMatch = filters.status === undefined ? true : log.status === filters.status
+      const sourceMatch = filters.source === undefined ? true : log.source === filters.source
+      return statusMatch && sourceMatch
+    })
+  }
+
+  return filterLogs
 }
