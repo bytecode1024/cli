@@ -1,6 +1,11 @@
 import {usePollAppLogs} from './usePollAppLogs.js'
 import {pollAppLogsForLogs} from '../../../poll-app-logs-for-logs.js'
-import {POLLING_ERROR_RETRY_INTERVAL_MS, POLLING_INTERVAL_MS, POLLING_THROTTLE_RETRY_INTERVAL_MS, parseFunctionRunPayload} from '../../../utils.js'
+import {
+  POLLING_ERROR_RETRY_INTERVAL_MS,
+  POLLING_INTERVAL_MS,
+  POLLING_THROTTLE_RETRY_INTERVAL_MS,
+  parseFunctionRunPayload,
+} from '../../../utils.js'
 import {render} from '@shopify/cli-kit/node/testing/ui'
 import {test, describe, vi, beforeEach, afterEach, expect} from 'vitest'
 import React from 'react'
@@ -9,7 +14,6 @@ vi.mock('../../../poll-app-logs-for-logs.js')
 
 const MOCKED_JWT_TOKEN = 'mockedJwtToken'
 const NEW_JWT_TOKEN = 'newJwt'
-const MOCKED_CURSOR = 'mockedCursor'
 const RETURNED_CURSOR = '2024-05-23T19:17:02.321773Z'
 const FUNCTION_ID = 'e57b4d31-2038-49ff-a0a1-1eea532414f7'
 const FUEL_CONSUMED = 512436
@@ -68,7 +72,6 @@ describe('usePollAppLogs', () => {
 
   afterEach(() => {
     vi.clearAllTimers()
-    vi.restoreAllMocks()
   })
 
   test('returns logs on successful poll', async () => {
@@ -115,25 +118,24 @@ describe('usePollAppLogs', () => {
     await vi.advanceTimersByTimeAsync(0)
 
     // Initial invocation, 401 returned
-    expect(mockedPollAppLogs)
-      .toHaveBeenNthCalledWith(1, {jwtToken:MOCKED_JWT_TOKEN, cursor: "", filters: undefined})
+    expect(mockedPollAppLogs).toHaveBeenNthCalledWith(1, {jwtToken: MOCKED_JWT_TOKEN, cursor: '', filters: undefined})
     expect(resubscribeCallback).toHaveBeenCalledOnce()
 
     // Follow up invocation, which invokes resubscribeCallback
     await vi.advanceTimersToNextTimerAsync()
-    expect(mockedPollAppLogs)
-      .toHaveBeenNthCalledWith(2, {jwtToken:NEW_JWT_TOKEN, cursor: "", filters: undefined})
+    expect(mockedPollAppLogs).toHaveBeenNthCalledWith(2, {jwtToken: NEW_JWT_TOKEN, cursor: '', filters: undefined})
 
     expect(vi.getTimerCount()).toEqual(1)
   })
 
   test('retries after throttle interval on 429', async () => {
-    const mockedPollAppLogs = vi.fn()
+    const mockedPollAppLogs = vi
+      .fn()
       .mockResolvedValueOnce(POLL_APP_LOGS_FOR_LOGS_429_RESPONSE)
       .mockResolvedValueOnce(POLL_APP_LOGS_FOR_LOGS_RESPONSE)
     vi.mocked(pollAppLogsForLogs).mockImplementation(mockedPollAppLogs)
 
-    vi.spyOn(global, 'setTimeout')
+    const timeoutSpy = vi.spyOn(global, 'setTimeout')
 
     const resubscribeCallback = vi.fn().mockResolvedValue(NEW_JWT_TOKEN)
 
@@ -146,7 +148,6 @@ describe('usePollAppLogs', () => {
     expect(mockedPollAppLogs).toHaveBeenCalledTimes(1)
 
     expect(hook.lastResult?.appLogOutputs).toHaveLength(0)
-    console.log(hook.lastResult?.errors)
     expect(hook.lastResult?.errors[0]).toEqual('Error Message')
     expect(hook.lastResult?.errors[1]).toEqual('Retrying in 60s')
 
@@ -156,15 +157,17 @@ describe('usePollAppLogs', () => {
     expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), POLLING_INTERVAL_MS)
 
     expect(vi.getTimerCount()).toEqual(1)
+    timeoutSpy.mockRestore()
   })
 
   test('retries after unknown error', async () => {
-    const mockedPollAppLogs = vi.fn()
+    const mockedPollAppLogs = vi
+      .fn()
       .mockResolvedValueOnce(POLL_APP_LOGS_FOR_LOGS_UNKNOWN_RESPONSE)
       .mockResolvedValueOnce(POLL_APP_LOGS_FOR_LOGS_RESPONSE)
     vi.mocked(pollAppLogsForLogs).mockImplementation(mockedPollAppLogs)
 
-    vi.spyOn(global, 'setTimeout')
+    const timeoutSpy = vi.spyOn(global, 'setTimeout')
 
     const resubscribeCallback = vi.fn().mockResolvedValue(NEW_JWT_TOKEN)
 
@@ -177,7 +180,6 @@ describe('usePollAppLogs', () => {
     expect(mockedPollAppLogs).toHaveBeenCalledTimes(1)
 
     expect(hook.lastResult?.appLogOutputs).toHaveLength(0)
-    console.log(hook.lastResult?.errors)
     expect(hook.lastResult?.errors[0]).toEqual('Unprocessable')
     expect(hook.lastResult?.errors[1]).toEqual('Retrying in 5s')
 
@@ -189,6 +191,7 @@ describe('usePollAppLogs', () => {
     expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), POLLING_INTERVAL_MS)
 
     expect(vi.getTimerCount()).toEqual(1)
+    timeoutSpy.mockRestore()
   })
 })
 

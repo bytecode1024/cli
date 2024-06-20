@@ -1,7 +1,6 @@
 import {PollOptions, AppLogData} from './types.js'
 import {fetchAppLogs} from './utils.js'
 import {AbortError} from '@shopify/cli-kit/node/error'
-import {renderFatalError} from '@shopify/cli-kit/node/ui'
 
 export const pollAppLogsForLogs = async ({
   jwtToken,

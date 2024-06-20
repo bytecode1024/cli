@@ -3,11 +3,11 @@ import {
   ONE_MILLION,
   POLLING_INTERVAL_MS,
   POLLING_THROTTLE_RETRY_INTERVAL_MS,
-} from '../../../constants.js'
+  parseFunctionRunPayload,
+} from '../../../utils.js'
 import {pollAppLogsForLogs} from '../../../poll-app-logs-for-logs.js'
 import {AppLogOutput} from '../../../types.js'
-import {parseFunctionRunPayload} from '../../../utils.js'
-import {useState, useEffect, useRef} from 'react'
+import {useState, useEffect} from 'react'
 
 interface UsePollAppLogsOptions {
   initialJwt: string
@@ -21,9 +21,6 @@ interface UsePollAppLogsOptions {
 export function usePollAppLogs({initialJwt, filters, resubscribeCallback}: UsePollAppLogsOptions) {
   const [errors, setErrors] = useState<string[]>([])
   const [appLogOutputs, setAppLogOutputs] = useState<AppLogOutput[]>([])
-  // const [jwtToken, setJwtToken] = useState<string | null>(initialJwt)
-  // const pollTimeoutRef = useRef<NodeJS.Timeout>()
-  // const cursorRef = useRef<string>('')
 
   useEffect(() => {
     let jwtToken = initialJwt
@@ -36,6 +33,7 @@ export function usePollAppLogs({initialJwt, filters, resubscribeCallback}: UsePo
       const errors = response.errors
       const newCursor = response.cursor
 
+      // eslint-disable-next-line require-atomic-updates
       cursor = newCursor ?? cursor
 
       if (errors && errors.length > 0) {
@@ -44,6 +42,7 @@ export function usePollAppLogs({initialJwt, filters, resubscribeCallback}: UsePo
           setErrors([...errorsStrings, `Retrying in ${POLLING_THROTTLE_RETRY_INTERVAL_MS / 1000}s`])
           nextInterval = POLLING_THROTTLE_RETRY_INTERVAL_MS
         } else if (errors.some((error) => error.status === 401)) {
+          // eslint-disable-next-line require-atomic-updates
           jwtToken = await resubscribeCallback()
         } else {
           setErrors([...errorsStrings, `Retrying in ${POLLING_ERROR_RETRY_INTERVAL_MS / 1000}s`])
@@ -69,9 +68,11 @@ export function usePollAppLogs({initialJwt, filters, resubscribeCallback}: UsePo
         }
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
       setTimeout(poll, nextInterval)
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     poll()
   }, [])
 

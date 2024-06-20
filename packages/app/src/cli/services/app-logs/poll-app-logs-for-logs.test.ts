@@ -1,9 +1,7 @@
-import {fetchAppLogs, generateFetchAppLogUrl} from './utils.js'
+import {fetchAppLogs} from './utils.js'
 import {pollAppLogsForLogs} from './poll-app-logs-for-logs.js'
 import {describe, test, vi, expect} from 'vitest'
 import {partnersFqdn} from '@shopify/cli-kit/node/context/fqdn'
-import {AbortError} from '@shopify/cli-kit/node/error'
-import {renderFatalError} from '@shopify/cli-kit/node/ui'
 
 vi.mock('@shopify/cli-kit/node/output')
 vi.mock('@shopify/cli-kit/node/context/fqdn')

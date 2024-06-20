@@ -1,6 +1,6 @@
 import {Logs} from './Logs.js'
 import {usePollAppLogs} from './hooks/usePollAppLogs.js'
-import {ONE_MILLION} from '../../constants.js'
+import {ONE_MILLION} from '../../utils.js'
 import {describe, test, vi, beforeEach, afterEach, expect} from 'vitest'
 import {render} from '@shopify/cli-kit/node/testing/ui'
 import React from 'react'
@@ -10,12 +10,10 @@ vi.mock('./hooks/usePollAppLogs.js')
 
 const MOCKED_JWT_TOKEN = 'mockedJwtToken'
 const MOCKED_CURSOR = 'mockedCursor'
-const RETURNED_CURSOR = '2024-05-23T19:17:02.321773Z'
 const FUNCTION_ID = 'e57b4d31-2038-49ff-a0a1-1eea532414f7'
 const FUEL_CONSUMED = 512436
 const TIME = '2024-06-18 16:02:04.868'
 
-const LOG_TYPE = 'function-run'
 const STATUS = 'success'
 const SOURCE = 'my-function'
 const LOGS = 'test logs'

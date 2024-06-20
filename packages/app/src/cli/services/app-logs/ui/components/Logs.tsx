@@ -6,7 +6,7 @@ import React, {FunctionComponent} from 'react'
 
 import {Static, Box, Text} from '@shopify/cli-kit/node/ink'
 
-export interface LogsProps {
+interface LogsProps {
   resubscribeCallback: () => Promise<string>
   pollOptions: PollOptions
 }

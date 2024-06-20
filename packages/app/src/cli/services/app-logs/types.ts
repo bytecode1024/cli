@@ -1,7 +1,5 @@
 import {DeveloperPlatformClient} from '../../utilities/developer-platform-client.js'
 
-export const LOG_TYPE_FUNCTION_RUN = 'function_run'
-
 export interface AppLogData {
   shop_id: number
   api_client_id: number
@@ -44,17 +42,6 @@ export interface PollOptions {
     source?: string
   }
 }
-
-interface PollResponse {
-  cursor?: string
-  errors?: {
-    status: number
-    message: string
-  }[]
-  app_logs?: AppLogData[]
-}
-
-export type LogsProcess = (pollOptions: PollOptions) => Promise<PollResponse>
 
 export interface AppLogPrefix {
   status: string

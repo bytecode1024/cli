@@ -28,7 +28,7 @@ export function parseFunctionRunPayload(payload: string): FunctionRunLog {
   }
 }
 
-export const generateFetchAppLogUrl = async (
+const generateFetchAppLogUrl = async (
   cursor?: string,
   filters?: {
     status?: string
@@ -89,22 +89,6 @@ export const subscribeToAppLogs = async (
     outputDebug(`Success: ${success}\n`)
   }
   return jwtToken
-}
-
-export function currentTime() {
-  const currentDateTime = new Date()
-  const year = currentDateTime.getFullYear()
-  const month = addLeadingZero(currentDateTime.getMonth() + 1)
-  const day = addLeadingZero(currentDateTime.getDate())
-  const hours = addLeadingZero(currentDateTime.getHours())
-  const minutes = addLeadingZero(currentDateTime.getMinutes())
-  const seconds = addLeadingZero(currentDateTime.getSeconds())
-  const milliseconds = addLeadingZero(currentDateTime.getMilliseconds(), 3)
-
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`
-}
-function addLeadingZero(number: number, length = 2) {
-  return number.toString().padStart(length, '0')
 }
 
 export function prettyPrintJsonIfPossible(json: unknown) {
