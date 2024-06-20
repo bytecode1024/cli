@@ -4,7 +4,7 @@ import {prettyPrintJsonIfPossible} from '../../utils.js'
 
 import React, {FunctionComponent} from 'react'
 
-import {Static, Box, Text} from '@shopify/cli-kit/node/ink'
+import {Box, Text} from '@shopify/cli-kit/node/ink'
 
 interface LogsProps {
   resubscribeCallback: () => Promise<string>
@@ -16,8 +16,8 @@ const Logs: FunctionComponent<LogsProps> = ({pollOptions: {jwtToken, filters}, r
 
   return (
     <>
-      <Static items={appLogOutputs}>
-        {(
+      {appLogOutputs.map(
+        (
           {
             appLog,
             prefix,
@@ -50,8 +50,8 @@ const Logs: FunctionComponent<LogsProps> = ({pollOptions: {jwtToken, filters}, r
               </>
             )}
           </Box>
-        )}
-      </Static>
+        ),
+      )}
 
       {errors.length > 0 && (
         <Box flexDirection="column">
