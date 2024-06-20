@@ -19,7 +19,6 @@ interface UsePollAppLogsOptions {
 }
 
 export function usePollAppLogs({initialJwt, filters, resubscribeCallback}: UsePollAppLogsOptions) {
-  // console.log('usePollAppLogs')
   const [errors, setErrors] = useState<string[]>([])
   const [appLogOutputs, setAppLogOutputs] = useState<AppLogOutput[]>([])
   const [jwtToken, setJwtToken] = useState<string | null>(initialJwt)
@@ -42,9 +41,6 @@ export function usePollAppLogs({initialJwt, filters, resubscribeCallback}: UsePo
           const appLogs = response.appLogs
           const errors = response.errors
           const newCursor = response.cursor
-          console.log('the response')
-          console.log(response)
-          // const {appLogs, errors, cursor: newCursor} = response
 
           // eslint-disable-next-line require-atomic-updates
           cursorRef.current = newCursor ?? cursorRef.current
@@ -55,7 +51,6 @@ export function usePollAppLogs({initialJwt, filters, resubscribeCallback}: UsePo
               setErrors([...errorsStrings, `Retrying in ${POLLING_THROTTLE_RETRY_INTERVAL_MS / 1000}s`])
               nextInterval = POLLING_THROTTLE_RETRY_INTERVAL_MS
             } else if (errors.some((error) => error.status === 401)) {
-              console.log('setting jwt token to null')
               setJwtToken(null)
             } else {
               setErrors([...errorsStrings, `Retrying in ${POLLING_ERROR_RETRY_INTERVAL_MS / 1000}s`])
@@ -77,8 +72,6 @@ export function usePollAppLogs({initialJwt, filters, resubscribeCallback}: UsePo
                 logTimestamp: log.log_timestamp,
               }
 
-              console.log('setting app log')
-              console.log(appLog)
               setAppLogOutputs((prev) => [...prev, {appLog, prefix}])
             }
           }
