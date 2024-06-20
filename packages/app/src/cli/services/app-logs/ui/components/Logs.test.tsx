@@ -62,7 +62,7 @@ describe('Logs', () => {
     vi.clearAllTimers()
   })
 
-  test.only('renders prefix and applogs', async () => {
+  test('renders prefix and applogs', async () => {
     // Given
     const mockedUsePollAppLogs = vi.fn().mockReturnValue(USE_POLL_APP_LOGS_RETURN_VALUE)
     vi.mocked(usePollAppLogs).mockImplementation(mockedUsePollAppLogs)
