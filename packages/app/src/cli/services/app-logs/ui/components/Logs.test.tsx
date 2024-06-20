@@ -98,7 +98,7 @@ describe('Logs', () => {
     renderInstance.unmount()
   })
 
-  test.only('handles errors', async () => {
+  test('handles errors', async () => {
     const mockedUsePollAppLogs = vi.fn().mockReturnValue(USE_POLL_APP_LOGS_ERRORS_RETURN_VALUE)
     vi.mocked(usePollAppLogs).mockImplementation(mockedUsePollAppLogs)
 

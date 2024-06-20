@@ -27,8 +27,7 @@ export const pollAppLogsForLogs = async ({
         errors: [{status: response.status, message: `${errorResponse.errors.join(', ')}`}],
       }
     } else {
-      const error = new AbortError(`Error while fetching: ${errorResponse.errors.join(', ')}`)
-      renderFatalError(error)
+      throw new AbortError(`${errorResponse.errors.join(', ')} while fetching app logs`)
     }
   }
 

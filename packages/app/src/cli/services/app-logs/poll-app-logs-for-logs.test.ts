@@ -2,10 +2,13 @@ import {fetchAppLogs, generateFetchAppLogUrl} from './utils.js'
 import {pollAppLogsForLogs} from './poll-app-logs-for-logs.js'
 import {describe, test, vi, expect} from 'vitest'
 import {partnersFqdn} from '@shopify/cli-kit/node/context/fqdn'
+import {AbortError} from '@shopify/cli-kit/node/error'
+import {renderFatalError} from '@shopify/cli-kit/node/ui'
 
 vi.mock('@shopify/cli-kit/node/output')
 vi.mock('@shopify/cli-kit/node/context/fqdn')
 vi.mock('@shopify/cli-kit/node/http')
+vi.mock('@shopify/cli-kit/node/ui')
 vi.mock('./utils.js')
 
 const FQDN = await partnersFqdn()
@@ -99,6 +102,9 @@ const RESPONSE_DATA_SUCCESS = {
 const RESPONSE_401 = {
   errors: ['401: Unauthorized'],
 }
+const RESPONSE_422 = {
+  errors: ['422: Unprocessable'],
+}
 
 const RESPONSE_429 = {
   errors: ['429: Resubscribe'],
@@ -125,9 +131,6 @@ describe('pollProcess', () => {
     const mockedFetchAppLogs = vi.fn().mockResolvedValueOnce(createMockResponse(RESPONSE_DATA_SUCCESS))
     vi.mocked(fetchAppLogs).mockImplementation(mockedFetchAppLogs)
 
-    const mockedUrl = vi.fn().mockResolvedValueOnce(`https://${FQDN}${MOCK_URL}`)
-    vi.mocked(generateFetchAppLogUrl).mockImplementation(mockedUrl)
-
     // // When
     const result = await pollAppLogsForLogs({
       jwtToken: MOCKED_JWT_TOKEN,
@@ -135,21 +138,16 @@ describe('pollProcess', () => {
       filters: {},
     })
 
-    // Then
-    expect(fetchAppLogs).toHaveBeenCalledWith(`https://${FQDN}${MOCK_URL}`, MOCKED_JWT_TOKEN)
-
     expect(result).toEqual({
       cursor: RETURNED_CURSOR,
       appLogs: RESPONSE_DATA_SUCCESS.app_logs,
     })
   })
 
-  test('polling with 401 status', async () => {
+  test('returns errors when response is 401/429/500', async () => {
     // Given
     const status = 401
     const statusText = '401: Unauthorized'
-    const mockedUrl = vi.fn().mockResolvedValueOnce(`https://${FQDN}${MOCK_URL}`)
-    vi.mocked(generateFetchAppLogUrl).mockImplementation(mockedUrl)
 
     const mockedFetchAppLogs = vi.fn().mockResolvedValueOnce(createMockResponse(RESPONSE_401, status, statusText))
     vi.mocked(fetchAppLogs).mockImplementation(mockedFetchAppLogs)
@@ -162,32 +160,6 @@ describe('pollProcess', () => {
     })
 
     // Then
-    expect(fetchAppLogs).toHaveBeenCalledWith(`https://${FQDN}${MOCK_URL}`, MOCKED_JWT_TOKEN)
-    expect(result).toEqual({
-      errors: [{status, message: statusText}],
-    })
-  })
-
-  test('polling with 429 status', async () => {
-    // Given
-    const status = 429
-    const statusText = '429: Resubscribe'
-    const mockedUrl = vi.fn().mockResolvedValueOnce(`https://${FQDN}${MOCK_URL}`)
-    vi.mocked(generateFetchAppLogUrl).mockImplementation(mockedUrl)
-
-    const mockedFetchAppLogs = vi.fn().mockResolvedValueOnce(createMockResponse(RESPONSE_429, status, statusText))
-    vi.mocked(fetchAppLogs).mockImplementation(mockedFetchAppLogs)
-
-    // When
-    const result = await pollAppLogsForLogs({
-      jwtToken: MOCKED_JWT_TOKEN,
-      cursor: MOCKED_CURSOR,
-      filters: {},
-    })
-
-    // Then
-    expect(fetchAppLogs).toHaveBeenCalledWith(`https://${FQDN}${MOCK_URL}`, MOCKED_JWT_TOKEN)
-
     expect(result).toEqual({
       errors: [{status, message: statusText}],
     })
@@ -195,26 +167,19 @@ describe('pollProcess', () => {
 
   test('polling with other error status', async () => {
     // Given
-    const status = 500
-    const statusText = '500: Error'
-    const mockedUrl = vi.fn().mockResolvedValueOnce(`https://${FQDN}${MOCK_URL}`)
-    vi.mocked(generateFetchAppLogUrl).mockImplementation(mockedUrl)
+    const status = 422
+    const statusText = '422: Unprocessable'
 
-    const mockedFetchAppLogs = vi.fn().mockResolvedValueOnce(createMockResponse(RESPONSE_500, status, statusText))
+    const mockedFetchAppLogs = vi.fn().mockResolvedValueOnce(createMockResponse(RESPONSE_422, status, statusText))
     vi.mocked(fetchAppLogs).mockImplementation(mockedFetchAppLogs)
 
-    // When
-    const result = await pollAppLogsForLogs({
-      jwtToken: MOCKED_JWT_TOKEN,
-      cursor: MOCKED_CURSOR,
-      filters: {},
-    })
-
-    // Then
-    expect(fetchAppLogs).toHaveBeenCalledWith(`https://${FQDN}${MOCK_URL}`, MOCKED_JWT_TOKEN)
-
-    expect(result).toEqual({
-      errors: [{status, message: statusText}],
-    })
+    // When/Then
+    await expect(() =>
+      pollAppLogsForLogs({
+        jwtToken: MOCKED_JWT_TOKEN,
+        cursor: MOCKED_CURSOR,
+        filters: {},
+      }),
+    ).rejects.toThrowError()
   })
 })

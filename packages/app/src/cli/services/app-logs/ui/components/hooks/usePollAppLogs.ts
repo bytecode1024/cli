@@ -21,79 +21,59 @@ interface UsePollAppLogsOptions {
 export function usePollAppLogs({initialJwt, filters, resubscribeCallback}: UsePollAppLogsOptions) {
   const [errors, setErrors] = useState<string[]>([])
   const [appLogOutputs, setAppLogOutputs] = useState<AppLogOutput[]>([])
-  const [jwtToken, setJwtToken] = useState<string | null>(initialJwt)
-  const pollTimeoutRef = useRef<NodeJS.Timeout>()
-  const cursorRef = useRef<string>('')
+  // const [jwtToken, setJwtToken] = useState<string | null>(initialJwt)
+  // const pollTimeoutRef = useRef<NodeJS.Timeout>()
+  // const cursorRef = useRef<string>('')
 
   useEffect(() => {
-    const pollLogs = async () => {
+    let jwtToken = initialJwt
+    let cursor = ''
+
+    const poll = async () => {
       let nextInterval = POLLING_INTERVAL_MS
-      try {
-        if (jwtToken === null) {
-          try {
-            const newJwt = await resubscribeCallback()
-            setJwtToken(newJwt)
-          } catch (error) {
-            throw new Error("Couldn't resubscribe.")
-          }
+      const response = await pollAppLogsForLogs({jwtToken, cursor, filters})
+      const appLogs = response.appLogs
+      const errors = response.errors
+      const newCursor = response.cursor
+
+      cursor = newCursor ?? cursor
+
+      if (errors && errors.length > 0) {
+        const errorsStrings = errors.map((error) => error.message)
+        if (errors.some((error) => error.status === 429)) {
+          setErrors([...errorsStrings, `Retrying in ${POLLING_THROTTLE_RETRY_INTERVAL_MS / 1000}s`])
+          nextInterval = POLLING_THROTTLE_RETRY_INTERVAL_MS
+        } else if (errors.some((error) => error.status === 401)) {
+          jwtToken = await resubscribeCallback()
         } else {
-          const response = await pollAppLogsForLogs({jwtToken, cursor: cursorRef.current, filters})
-          const appLogs = response.appLogs
-          const errors = response.errors
-          const newCursor = response.cursor
-
-          // eslint-disable-next-line require-atomic-updates
-          cursorRef.current = newCursor ?? cursorRef.current
-
-          if (errors && errors.length > 0) {
-            const errorsStrings = errors.map((error) => error.message)
-            if (errors.some((error) => error.status === 429)) {
-              setErrors([...errorsStrings, `Retrying in ${POLLING_THROTTLE_RETRY_INTERVAL_MS / 1000}s`])
-              nextInterval = POLLING_THROTTLE_RETRY_INTERVAL_MS
-            } else if (errors.some((error) => error.status === 401)) {
-              setJwtToken(null)
-            } else {
-              setErrors([...errorsStrings, `Retrying in ${POLLING_ERROR_RETRY_INTERVAL_MS / 1000}s`])
-              nextInterval = POLLING_ERROR_RETRY_INTERVAL_MS
-            }
-          } else {
-            setErrors([])
-          }
-
-          if (appLogs) {
-            for (const log of appLogs) {
-              const appLog = parseFunctionRunPayload(log.payload)
-              const fuel = (appLog.fuelConsumed / ONE_MILLION).toFixed(4)
-              const prefix = {
-                status: log.status === 'success' ? 'Success' : 'Failure',
-                source: log.source,
-                fuelConsumed: fuel,
-                functionId: appLog.functionId,
-                logTimestamp: log.log_timestamp,
-              }
-
-              setAppLogOutputs((prev) => [...prev, {appLog, prefix}])
-            }
-          }
+          setErrors([...errorsStrings, `Retrying in ${POLLING_ERROR_RETRY_INTERVAL_MS / 1000}s`])
+          nextInterval = POLLING_ERROR_RETRY_INTERVAL_MS
         }
-        // eslint-disable-next-line @typescript-eslint/no-misused-promises
-        pollTimeoutRef.current = setTimeout(() => {
-          return pollLogs()
-        }, nextInterval)
-      } catch (error) {
-        throw new Error(`Error handling logs: ${error}`)
+      } else {
+        setErrors([])
       }
+
+      if (appLogs) {
+        for (const log of appLogs) {
+          const appLog = parseFunctionRunPayload(log.payload)
+          const fuel = (appLog.fuelConsumed / ONE_MILLION).toFixed(4)
+          const prefix = {
+            status: log.status === 'success' ? 'Success' : 'Failure',
+            source: log.source,
+            fuelConsumed: fuel,
+            functionId: appLog.functionId,
+            logTimestamp: log.log_timestamp,
+          }
+
+          setAppLogOutputs((prev) => [...prev, {appLog, prefix}])
+        }
+      }
+
+      setTimeout(poll, nextInterval)
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    pollLogs()
-
-    return () => {
-      if (pollTimeoutRef.current) {
-        clearTimeout(pollTimeoutRef.current)
-      }
-    }
-  }, [jwtToken, filters])
+    poll()
+  }, [])
 
   return {appLogOutputs, errors}
 }

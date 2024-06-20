@@ -1,6 +1,6 @@
 import {usePollAppLogs} from './usePollAppLogs.js'
 import {pollAppLogsForLogs} from '../../../poll-app-logs-for-logs.js'
-import {parseFunctionRunPayload} from '../../../utils.js'
+import {POLLING_ERROR_RETRY_INTERVAL_MS, POLLING_INTERVAL_MS, POLLING_THROTTLE_RETRY_INTERVAL_MS, parseFunctionRunPayload} from '../../../utils.js'
 import {render} from '@shopify/cli-kit/node/testing/ui'
 import {test, describe, vi, beforeEach, afterEach, expect} from 'vitest'
 import React from 'react'
@@ -57,6 +57,10 @@ const POLL_APP_LOGS_FOR_LOGS_429_RESPONSE = {
   errors: [{status: 429, message: 'Error Message'}],
 }
 
+const POLL_APP_LOGS_FOR_LOGS_UNKNOWN_RESPONSE = {
+  errors: [{status: 422, message: 'Unprocessable'}],
+}
+
 describe('usePollAppLogs', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -64,6 +68,7 @@ describe('usePollAppLogs', () => {
 
   afterEach(() => {
     vi.clearAllTimers()
+    vi.restoreAllMocks()
   })
 
   test('returns logs on successful poll', async () => {
@@ -74,6 +79,7 @@ describe('usePollAppLogs', () => {
 
     const hook = renderHook(() => usePollAppLogs({initialJwt: MOCKED_JWT_TOKEN, resubscribeCallback}))
 
+    // needed to await the render
     await vi.advanceTimersByTimeAsync(0)
 
     expect(mockedPollAppLogs).toHaveBeenCalledTimes(1)
@@ -105,37 +111,82 @@ describe('usePollAppLogs', () => {
 
     renderHook(() => usePollAppLogs({initialJwt: MOCKED_JWT_TOKEN, resubscribeCallback}))
 
-    // Initial invocation, 401 returned
+    // needed to await the render
     await vi.advanceTimersByTimeAsync(0)
-    expect(mockedPollAppLogs).toHaveBeenCalledTimes(1)
-    expect(resubscribeCallback).not.toHaveBeenCalledOnce()
+
+    // Initial invocation, 401 returned
+    expect(mockedPollAppLogs)
+      .toHaveBeenNthCalledWith(1, {jwtToken:MOCKED_JWT_TOKEN, cursor: "", filters: undefined})
+    expect(resubscribeCallback).toHaveBeenCalledOnce()
 
     // Follow up invocation, which invokes resubscribeCallback
-    await vi.advanceTimersByTimeAsync(0)
-    expect(resubscribeCallback).toHaveBeenCalledOnce()
+    await vi.advanceTimersToNextTimerAsync()
+    expect(mockedPollAppLogs)
+      .toHaveBeenNthCalledWith(2, {jwtToken:NEW_JWT_TOKEN, cursor: "", filters: undefined})
 
     expect(vi.getTimerCount()).toEqual(1)
   })
 
-  test.only('retries after throttle interval on 429', async () => {
-    const mockedPollAppLogs = vi.fn().mockResolvedValueOnce(POLL_APP_LOGS_FOR_LOGS_429_RESPONSE)
+  test('retries after throttle interval on 429', async () => {
+    const mockedPollAppLogs = vi.fn()
+      .mockResolvedValueOnce(POLL_APP_LOGS_FOR_LOGS_429_RESPONSE)
+      .mockResolvedValueOnce(POLL_APP_LOGS_FOR_LOGS_RESPONSE)
     vi.mocked(pollAppLogsForLogs).mockImplementation(mockedPollAppLogs)
 
     vi.spyOn(global, 'setTimeout')
 
     const resubscribeCallback = vi.fn().mockResolvedValue(NEW_JWT_TOKEN)
 
-    renderHook(() => usePollAppLogs({initialJwt: MOCKED_JWT_TOKEN, resubscribeCallback}))
+    const hook = renderHook(() => usePollAppLogs({initialJwt: MOCKED_JWT_TOKEN, resubscribeCallback}))
+
+    // needed to await the render
+    await vi.advanceTimersByTimeAsync(0)
 
     // Initial invocation, 429 returned
-    await vi.advanceTimersByTimeAsync(0)
     expect(mockedPollAppLogs).toHaveBeenCalledTimes(1)
 
-    expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 60000)
+    expect(hook.lastResult?.appLogOutputs).toHaveLength(0)
+    console.log(hook.lastResult?.errors)
+    expect(hook.lastResult?.errors[0]).toEqual('Error Message')
+    expect(hook.lastResult?.errors[1]).toEqual('Retrying in 60s')
 
-    // // Follow up invocation, which invokes resubscribeCallback
-    // await vi.advanceTimersByTimeAsync(0)
-    // expect(resubscribeCallback).toHaveBeenCalledOnce()
+    expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), POLLING_THROTTLE_RETRY_INTERVAL_MS)
+
+    await vi.advanceTimersToNextTimerAsync()
+    expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), POLLING_INTERVAL_MS)
+
+    expect(vi.getTimerCount()).toEqual(1)
+  })
+
+  test('retries after unknown error', async () => {
+    const mockedPollAppLogs = vi.fn()
+      .mockResolvedValueOnce(POLL_APP_LOGS_FOR_LOGS_UNKNOWN_RESPONSE)
+      .mockResolvedValueOnce(POLL_APP_LOGS_FOR_LOGS_RESPONSE)
+    vi.mocked(pollAppLogsForLogs).mockImplementation(mockedPollAppLogs)
+
+    vi.spyOn(global, 'setTimeout')
+
+    const resubscribeCallback = vi.fn().mockResolvedValue(NEW_JWT_TOKEN)
+
+    const hook = renderHook(() => usePollAppLogs({initialJwt: MOCKED_JWT_TOKEN, resubscribeCallback}))
+
+    // needed to await the render
+    await vi.advanceTimersByTimeAsync(0)
+
+    // Initial invocation, 429 returned
+    expect(mockedPollAppLogs).toHaveBeenCalledTimes(1)
+
+    expect(hook.lastResult?.appLogOutputs).toHaveLength(0)
+    console.log(hook.lastResult?.errors)
+    expect(hook.lastResult?.errors[0]).toEqual('Unprocessable')
+    expect(hook.lastResult?.errors[1]).toEqual('Retrying in 5s')
+
+    expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), POLLING_ERROR_RETRY_INTERVAL_MS)
+
+    await vi.advanceTimersToNextTimerAsync()
+    expect(hook.lastResult?.appLogOutputs).toHaveLength(1)
+    expect(hook.lastResult?.errors).toHaveLength(0)
+    expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), POLLING_INTERVAL_MS)
 
     expect(vi.getTimerCount()).toEqual(1)
   })
