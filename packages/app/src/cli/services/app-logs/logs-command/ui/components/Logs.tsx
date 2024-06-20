@@ -1,6 +1,6 @@
 import {usePollAppLogs} from './hooks/usePollAppLogs.js'
-import {PollOptions, FunctionRunLog, AppLogPrefix} from '../../types.js'
-import {prettyPrintJsonIfPossible} from '../../utils.js'
+import {PollOptions, FunctionRunLog, AppLogPrefix} from '../../../types.js'
+import {prettyPrintJsonIfPossible} from '../../../utils.js'
 
 import React, {FunctionComponent} from 'react'
 

@@ -4,9 +4,9 @@ import {
   POLLING_INTERVAL_MS,
   POLLING_THROTTLE_RETRY_INTERVAL_MS,
   parseFunctionRunPayload,
-} from '../../../utils.js'
-import {pollAppLogsForLogs} from '../../../poll-app-logs-for-logs.js'
-import {AppLogOutput} from '../../../types.js'
+} from '../../../../utils.js'
+import {pollAppLogsForLogs} from '../../../poll-app-logs.js'
+import {AppLogOutput} from '../../../../types.js'
 import {useState, useEffect} from 'react'
 
 interface UsePollAppLogsOptions {

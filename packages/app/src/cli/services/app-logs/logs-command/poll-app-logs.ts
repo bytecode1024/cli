@@ -1,5 +1,5 @@
-import {PollOptions, AppLogData} from './types.js'
-import {fetchAppLogs} from './utils.js'
+import {PollOptions, AppLogData} from '../types.js'
+import {fetchAppLogs} from '../utils.js'
 import {AbortError} from '@shopify/cli-kit/node/error'
 
 export const pollAppLogsForLogs = async ({

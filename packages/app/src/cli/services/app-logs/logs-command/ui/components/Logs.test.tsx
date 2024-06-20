@@ -1,6 +1,6 @@
 import {Logs} from './Logs.js'
 import {usePollAppLogs} from './hooks/usePollAppLogs.js'
-import {ONE_MILLION} from '../../utils.js'
+import {ONE_MILLION} from '../../../utils.js'
 import {describe, test, vi, beforeEach, afterEach, expect} from 'vitest'
 import {render} from '@shopify/cli-kit/node/testing/ui'
 import React from 'react'

@@ -1,5 +1,5 @@
 import {DevContextOptions, ensureDevContext} from './context.js'
-import {renderLogs} from './app-logs/ui.js'
+import {renderLogs} from './app-logs/logs-command/ui.js'
 import {subscribeToAppLogs} from './app-logs/utils.js'
 import {selectDeveloperPlatformClient, DeveloperPlatformClient} from '../utilities/developer-platform-client.js'
 import {loadAppConfiguration} from '../models/app/loader.js'

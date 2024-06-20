@@ -1,16 +1,16 @@
 import {usePollAppLogs} from './usePollAppLogs.js'
-import {pollAppLogsForLogs} from '../../../poll-app-logs-for-logs.js'
+import {pollAppLogsForLogs} from '../../../poll-app-logs.js'
 import {
   POLLING_ERROR_RETRY_INTERVAL_MS,
   POLLING_INTERVAL_MS,
   POLLING_THROTTLE_RETRY_INTERVAL_MS,
   parseFunctionRunPayload,
-} from '../../../utils.js'
+} from '../../../../utils.js'
 import {render} from '@shopify/cli-kit/node/testing/ui'
 import {test, describe, vi, beforeEach, afterEach, expect} from 'vitest'
 import React from 'react'
 
-vi.mock('../../../poll-app-logs-for-logs.js')
+vi.mock('../../../poll-app-logs.js')
 
 const MOCKED_JWT_TOKEN = 'mockedJwtToken'
 const NEW_JWT_TOKEN = 'newJwt'

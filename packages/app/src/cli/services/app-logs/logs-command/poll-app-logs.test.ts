@@ -1,22 +1,18 @@
-import {fetchAppLogs} from './utils.js'
-import {pollAppLogsForLogs} from './poll-app-logs-for-logs.js'
+import {pollAppLogsForLogs} from './poll-app-logs.js'
+import {fetchAppLogs} from '../utils.js'
 import {describe, test, vi, expect} from 'vitest'
-import {partnersFqdn} from '@shopify/cli-kit/node/context/fqdn'
 
 vi.mock('@shopify/cli-kit/node/output')
 vi.mock('@shopify/cli-kit/node/context/fqdn')
 vi.mock('@shopify/cli-kit/node/http')
 vi.mock('@shopify/cli-kit/node/ui')
-vi.mock('./utils.js')
+vi.mock('../utils.js')
 
-const FQDN = await partnersFqdn()
-const MOCK_URL = '/app_logs/poll?cursor=mockedCursor'
 const MOCKED_JWT_TOKEN = 'mockedJwtToken'
 const MOCKED_CURSOR = 'mockedCursor'
 
 const LOGS = '1\\n2\\n3\\n4\\n'
 const FUNCTION_ERROR = 'function_error'
-const FUNCTION_RUN = 'function_run'
 
 const INPUT = {
   cart: {
@@ -51,26 +47,7 @@ const OUTPUT = {
     },
   ],
 }
-const SOURCE = 'my-function'
-const FUNCTION_PAYLOAD = {
-  input: JSON.stringify(INPUT),
-  input_bytes: 123,
-  output: JSON.stringify(OUTPUT),
-  output_bytes: 182,
-  function_id: 'e57b4d31-2038-49ff-a0a1-1eea532414f7',
-  logs: LOGS,
-  fuel_consumed: 512436,
-}
-const FAILURE_PAYLOAD = {
-  input: INPUT,
-  input_bytes: 123,
-  output: OUTPUT,
-  output_bytes: 182,
-  function_id: 'e57b4d31-2038-49ff-a0a1-1eea532414f7',
-  logs: LOGS,
-  error_type: FUNCTION_ERROR,
-}
-const OTHER_PAYLOAD = {some: 'arbitrary payload'}
+
 const RETURNED_CURSOR = '2024-05-23T19:17:02.321773Z'
 const RESPONSE_DATA_SUCCESS = {
   app_logs: [
