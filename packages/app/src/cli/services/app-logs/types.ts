@@ -1,5 +1,19 @@
 import {DeveloperPlatformClient} from '../../utilities/developer-platform-client.js'
 
+export interface SuccessResponse {
+  appLogs: AppLogData[]
+  cursor?: string
+}
+
+export interface ErrorResponse {
+  errors: {
+    status: number
+    message: string
+  }[]
+}
+
+export type PollResponse = SuccessResponse | ErrorResponse
+
 export interface AppLogData {
   shop_id: number
   api_client_id: number
@@ -15,7 +29,6 @@ export interface AppLogData {
 export interface FunctionRunLog {
   input: unknown
   inputBytes: number
-  invocationId: string
   output: unknown
   outputBytes: number
   logs: string
@@ -37,12 +50,13 @@ export interface SubscribeOptions {
 export interface PollOptions {
   jwtToken: string
   cursor?: string
-  filters: {
-    status: string | undefined
-    source: string | undefined
-  }
+  filters: PollFilters
 }
 
+export interface PollFilters {
+  status: string | undefined
+  source: string | undefined
+}
 export interface AppLogPrefix {
   status: string
   source: string

@@ -1,5 +1,5 @@
 import {usePollAppLogs} from './usePollAppLogs.js'
-import {pollAppLogsForLogs} from '../../../poll-app-logs.js'
+import {pollAppLogs} from '../../../poll-app-logs.js'
 import {
   POLLING_ERROR_RETRY_INTERVAL_MS,
   POLLING_INTERVAL_MS,
@@ -78,7 +78,7 @@ describe('usePollAppLogs', () => {
 
   test('returns logs on successful poll', async () => {
     const mockedPollAppLogs = vi.fn().mockResolvedValue(POLL_APP_LOGS_FOR_LOGS_RESPONSE)
-    vi.mocked(pollAppLogsForLogs).mockImplementation(mockedPollAppLogs)
+    vi.mocked(pollAppLogs).mockImplementation(mockedPollAppLogs)
 
     const resubscribeCallback = vi.fn().mockResolvedValue(NEW_JWT_TOKEN)
 
@@ -112,7 +112,7 @@ describe('usePollAppLogs', () => {
       .fn()
       .mockResolvedValueOnce(POLL_APP_LOGS_FOR_LOGS_401_RESPONSE)
       .mockResolvedValueOnce(POLL_APP_LOGS_FOR_LOGS_RESPONSE)
-    vi.mocked(pollAppLogsForLogs).mockImplementation(mockedPollAppLogs)
+    vi.mocked(pollAppLogs).mockImplementation(mockedPollAppLogs)
 
     const resubscribeCallback = vi.fn().mockResolvedValue(NEW_JWT_TOKEN)
 
@@ -141,7 +141,7 @@ describe('usePollAppLogs', () => {
       .fn()
       .mockResolvedValueOnce(POLL_APP_LOGS_FOR_LOGS_429_RESPONSE)
       .mockResolvedValueOnce(POLL_APP_LOGS_FOR_LOGS_RESPONSE)
-    vi.mocked(pollAppLogsForLogs).mockImplementation(mockedPollAppLogs)
+    vi.mocked(pollAppLogs).mockImplementation(mockedPollAppLogs)
 
     const timeoutSpy = vi.spyOn(global, 'setTimeout')
 
@@ -175,7 +175,7 @@ describe('usePollAppLogs', () => {
       .fn()
       .mockResolvedValueOnce(POLL_APP_LOGS_FOR_LOGS_UNKNOWN_RESPONSE)
       .mockResolvedValueOnce(POLL_APP_LOGS_FOR_LOGS_RESPONSE)
-    vi.mocked(pollAppLogsForLogs).mockImplementation(mockedPollAppLogs)
+    vi.mocked(pollAppLogs).mockImplementation(mockedPollAppLogs)
 
     const timeoutSpy = vi.spyOn(global, 'setTimeout')
 

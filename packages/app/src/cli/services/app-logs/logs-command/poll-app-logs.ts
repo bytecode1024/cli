@@ -1,19 +1,8 @@
-import {PollOptions, AppLogData} from '../types.js'
+import {PollOptions, AppLogData, PollResponse} from '../types.js'
 import {fetchAppLogs} from '../utils.js'
 import {AbortError} from '@shopify/cli-kit/node/error'
 
-export const pollAppLogsForLogs = async ({
-  jwtToken,
-  cursor,
-  filters,
-}: PollOptions): Promise<{
-  cursor?: string
-  errors?: {
-    status: number
-    message: string
-  }[]
-  appLogs?: AppLogData[]
-}> => {
+export const pollAppLogs = async ({jwtToken, cursor, filters}: PollOptions): Promise<PollResponse> => {
   const response = await fetchAppLogs(jwtToken, cursor, filters)
 
   const responseJson = await response.json()
@@ -33,7 +22,6 @@ export const pollAppLogsForLogs = async ({
   const data = responseJson as {
     app_logs: AppLogData[]
     cursor?: string
-    errors?: string[]
   }
 
   const filteredLogs = filterLogs(data.app_logs, filters)

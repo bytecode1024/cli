@@ -1,7 +1,7 @@
 import {Logs} from './Logs.js'
 import {usePollAppLogs} from './hooks/usePollAppLogs.js'
 import {ONE_MILLION} from '../../../utils.js'
-import {describe, test, vi, beforeEach, afterEach, expect} from 'vitest'
+import {describe, test, vi, expect} from 'vitest'
 import {render} from '@shopify/cli-kit/node/testing/ui'
 import React from 'react'
 import {unstyled} from '@shopify/cli-kit/node/output'
@@ -56,14 +56,6 @@ const USE_POLL_APP_LOGS_ERRORS_RETURN_VALUE = {
 const EMPTY_FILTERS = {status: undefined, source: undefined}
 
 describe('Logs', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-  })
-
-  afterEach(() => {
-    vi.clearAllTimers()
-  })
-
   test('renders prefix and applogs', async () => {
     // Given
     const mockedUsePollAppLogs = vi.fn().mockReturnValue(USE_POLL_APP_LOGS_RETURN_VALUE)

@@ -1,4 +1,4 @@
-import {pollAppLogsForLogs} from './poll-app-logs.js'
+import {pollAppLogs} from './poll-app-logs.js'
 import {fetchAppLogs} from '../utils.js'
 import {describe, test, vi, expect} from 'vitest'
 
@@ -109,7 +109,7 @@ describe('pollProcess', () => {
     vi.mocked(fetchAppLogs).mockImplementation(mockedFetchAppLogs)
 
     // // When
-    const result = await pollAppLogsForLogs({
+    const result = await pollAppLogs({
       jwtToken: MOCKED_JWT_TOKEN,
       cursor: MOCKED_CURSOR,
       filters: EMPTY_FILTERS,
@@ -127,7 +127,7 @@ describe('pollProcess', () => {
     vi.mocked(fetchAppLogs).mockImplementation(mockedFetchAppLogs)
 
     // // When
-    const result = await pollAppLogsForLogs({
+    const result = await pollAppLogs({
       jwtToken: MOCKED_JWT_TOKEN,
       cursor: MOCKED_CURSOR,
       filters: {status: 'failure', source: 'my-function'},
@@ -148,7 +148,7 @@ describe('pollProcess', () => {
     vi.mocked(fetchAppLogs).mockImplementation(mockedFetchAppLogs)
 
     // When
-    const result = await pollAppLogsForLogs({
+    const result = await pollAppLogs({
       jwtToken: MOCKED_JWT_TOKEN,
       cursor: MOCKED_CURSOR,
       filters: EMPTY_FILTERS,
@@ -170,7 +170,7 @@ describe('pollProcess', () => {
 
     // When/Then
     await expect(() =>
-      pollAppLogsForLogs({
+      pollAppLogs({
         jwtToken: MOCKED_JWT_TOKEN,
         cursor: MOCKED_CURSOR,
         filters: EMPTY_FILTERS,

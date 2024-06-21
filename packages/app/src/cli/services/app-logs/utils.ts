@@ -20,7 +20,6 @@ export function parseFunctionRunPayload(payload: string): FunctionRunLog {
     output: parsedPayload.output,
     outputBytes: parsedPayload.output_bytes,
     logs: parsedPayload.logs,
-    invocationId: parsedPayload.invocation_id,
     functionId: parsedPayload.function_id,
     fuelConsumed: parsedPayload.fuel_consumed,
     errorMessage: parsedPayload.error_message,

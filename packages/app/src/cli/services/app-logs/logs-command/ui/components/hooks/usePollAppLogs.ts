@@ -5,16 +5,13 @@ import {
   POLLING_THROTTLE_RETRY_INTERVAL_MS,
   parseFunctionRunPayload,
 } from '../../../../utils.js'
-import {pollAppLogsForLogs} from '../../../poll-app-logs.js'
-import {AppLogOutput} from '../../../../types.js'
+import {ErrorResponse, SuccessResponse, AppLogOutput, PollFilters} from '../../../../types.js'
+import {pollAppLogs} from '../../../poll-app-logs.js'
 import {useState, useEffect} from 'react'
 
 interface UsePollAppLogsOptions {
   initialJwt: string
-  filters: {
-    status: string | undefined
-    source: string | undefined
-  }
+  filters: PollFilters
   resubscribeCallback: () => Promise<string>
 }
 
@@ -23,18 +20,12 @@ export function usePollAppLogs({initialJwt, filters, resubscribeCallback}: UsePo
   const [appLogOutputs, setAppLogOutputs] = useState<AppLogOutput[]>([])
 
   useEffect(() => {
-    let jwtToken = initialJwt
-    let cursor = ''
-
-    const poll = async () => {
+    const poll = async ({jwtToken, cursor, filters}: {jwtToken: string; cursor?: string; filters: PollFilters}) => {
       let nextInterval = POLLING_INTERVAL_MS
-      const response = await pollAppLogsForLogs({jwtToken, cursor, filters})
-      const appLogs = response.appLogs
-      const errors = response.errors
-      const newCursor = response.cursor
+      let nextJwtToken = jwtToken
+      const response = await pollAppLogs({jwtToken, cursor, filters})
 
-      // eslint-disable-next-line require-atomic-updates
-      cursor = newCursor ?? cursor
+      const {errors} = response as ErrorResponse
 
       if (errors && errors.length > 0) {
         const errorsStrings = errors.map((error) => error.message)
@@ -42,8 +33,7 @@ export function usePollAppLogs({initialJwt, filters, resubscribeCallback}: UsePo
           setErrors([...errorsStrings, `Retrying in ${POLLING_THROTTLE_RETRY_INTERVAL_MS / 1000}s`])
           nextInterval = POLLING_THROTTLE_RETRY_INTERVAL_MS
         } else if (errors.some((error) => error.status === 401)) {
-          // eslint-disable-next-line require-atomic-updates
-          jwtToken = await resubscribeCallback()
+          nextJwtToken = await resubscribeCallback()
         } else {
           setErrors([...errorsStrings, `Retrying in ${POLLING_ERROR_RETRY_INTERVAL_MS / 1000}s`])
           nextInterval = POLLING_ERROR_RETRY_INTERVAL_MS
@@ -51,6 +41,8 @@ export function usePollAppLogs({initialJwt, filters, resubscribeCallback}: UsePo
       } else {
         setErrors([])
       }
+
+      const {cursor: nextCursor, appLogs} = response as SuccessResponse
 
       if (appLogs) {
         for (const log of appLogs) {
@@ -68,12 +60,16 @@ export function usePollAppLogs({initialJwt, filters, resubscribeCallback}: UsePo
         }
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-misused-promises
-      setTimeout(poll, nextInterval)
+      setTimeout(() => {
+        poll({jwtToken: nextJwtToken, cursor: nextCursor || cursor, filters}).catch((error) => {
+          throw error
+        })
+      }, nextInterval)
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    poll()
+    poll({jwtToken: initialJwt, cursor: '', filters}).catch((error) => {
+      throw error
+    })
   }, [])
 
   return {appLogOutputs, errors}

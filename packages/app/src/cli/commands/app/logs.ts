@@ -23,7 +23,7 @@ export default class Logs extends Command {
   static flags = {
     ...Dev.flags,
     source: Flags.string({
-      description: 'Filters output to the specified log source (Multiple flags allowed).',
+      description: 'Filters output to the specified log source.',
       env: 'SHOPIFY_FLAG_SOURCE',
     }),
     status: Flags.string({
